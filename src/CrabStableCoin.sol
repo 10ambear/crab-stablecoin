@@ -46,7 +46,7 @@ contract CrabStableCoin is ERC20Burnable, Ownable, ICrabStableCoin {
     error CrabStableCoin__BurnAmountExceedsBalance();
     error CrabStableCoin__NotZeroAddress();
 
-    constructor() ERC20("Crab stable coun", "CRAB") Ownable(msg.sender)  {
+    constructor() ERC20("Crab stable coin", "CRAB") Ownable(msg.sender)  {
 
     }
 
