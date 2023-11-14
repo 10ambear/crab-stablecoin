@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
 
-contract ClawGovernanceToken{
+import "./interfaces/IGov.sol";
+
+contract ClawGovernanceToken is IGov {
 
         /**
      * @dev Create a proposal for an ltv ratio for a supported collateral token.

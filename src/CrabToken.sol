@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/ICDP.sol";
 
-contract CrabToken is ERC20, Ownable {
+contract CrabToken is ERC20, Ownable, ICDP {
     using SafeERC20 for IERC20;
 
     uint256 private totalDebt; 
