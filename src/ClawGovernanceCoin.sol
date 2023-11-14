@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
 
+import "./interfaces/IClawGovernanceCoin.sol";
 
-interface IGov {
+contract ClawGovernanceCoin is IClawGovernanceCoin {
 
-    /**
+        /**
      * @dev Create a proposal for an ltv ratio for a supported collateral token.
      * Requires that the proposer holds > 1% of the totalSupply of the governance token.
      *
@@ -14,7 +15,9 @@ interface IGov {
      * @param ltv the proposed ltv ratio.
      * @return proposalId the id of the proposal.
      */
-    function propose(address token, uint256 ltv) external returns (uint256 proposalId);
+    function propose(address token, uint256 ltv) external returns (uint256 proposalId){
+
+    }
 
     /**
      * @dev Vote for a proposal with the governance token balance of the caller.
@@ -22,6 +25,8 @@ interface IGov {
      *
      * @param proposalId the id corresponding to the proposal to vote for.
      */
-    function vote(uint256 proposalId) external;
+    function vote(uint256 proposalId) external{
+        
+    }
 
 }
