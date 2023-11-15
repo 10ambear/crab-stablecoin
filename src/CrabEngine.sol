@@ -61,7 +61,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
 
     /// @dev If we know exactly how many tokens we have, we could make this immutable!
     address[] private s_collateralTokens;
-    
+
     /// @dev the total debt of the protocol
     uint256 private s_totalDebt;
 
@@ -78,6 +78,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // Modifiers
     ///////////////////
+
     modifier moreThanZero(uint256 amount) {
         if (amount == 0) {
             revert CrabEngine__NeedsMoreThanZero();
@@ -96,14 +97,16 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // constructor
     ///////////////////
 
-    constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address crabAddress) {
-        // todo get the price of the collateral tokens in chainlink
-        // todo sanity checks
-        s_collateralTokenAndRatio[0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 70; // Wrapped Ether
-        s_collateralTokenAndRatio[0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 80; // USDC
-        s_collateralTokenAndRatio[0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9] = 50; // Solana
-
-        if (tokenAddresses.length != priceFeedAddresses.length) {
+    //0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 70; // Wrapped Ether
+    //0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 80; // USDC
+    //0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9] = 50; // Solana
+    constructor(
+        address[] memory tokenAddresses,
+        address[] memory priceFeedAddresses,
+        address[] memory tvlRatios,
+        address crabAddress
+    ) {
+        if (tokenAddresses.length != priceFeedAddresses.length && tokenAddresses.length != tvlRatios.length) {
             revert CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
         // These feeds will be the USD pairs
@@ -111,6 +114,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
+            s_collateralTokenAndRatio.push(tvlRatios[i]);
         }
         i_crabStableCoin = CrabStableCoin(crabAddress);
     }
@@ -165,10 +169,9 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         uint256 borrowedAmount = s_borrowedBalances[msg.sender];
 
         // if the user borrowed funds
-        if(borrowedAmount > 0){
-        
+        if (borrowedAmount > 0) {
+            uint256 maxAUserCanBorrow = _getMaxCrabUserCanBorrow(msg.sender);
         }
-
 
         // update user collateral
         s_collateralDeposited[msg.sender][collateralToken] -= amount;
@@ -193,8 +196,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         uint256 borrowedAmount = s_borrowedBalances[msg.sender];
 
         // get the max amount a user can borrow
-        uint256 maxBorrow = getTotalBorrowableAmount();        
-        require (amount < maxBorrow - borrowedAmount, "Amount exceeds collateral borrow value");
+        uint256 maxBorrow = getTotalBorrowableAmount();
+        require(amount < maxBorrow - borrowedAmount, "Amount exceeds collateral borrow value");
 
         // update borrowed balance and total debt
         s_borrowedBalances[msg.sender] += amount;
