@@ -65,13 +65,16 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     /// @dev the total debt of the protocol
     uint256 private s_totalDebt;
 
+    uint256 private constant PRECISION = 1e18;
+    uint256 private constant EQUALIZER_PRECISION = 1e10;
+
     ///////////////////
     // Events
     ///////////////////
     event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
     // if redeemFrom != redeemedTo, then it was liquidated
     event CollateralRedeemed(address indexed redeemFrom, address indexed redeemTo, address token, uint256 amount);
-
+    event CrabTokenBorrowed(address indexed to, uint256 indexed amount);
     ///////////////////
     // Modifiers
     ///////////////////
@@ -205,43 +208,17 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         // get the amount borrowed by the user
         uint256 borrowedAmount = s_borrowedBalances[msg.sender];
 
-        // get the total collateral for the user
-        uint256 totalCollateral = 0;
-        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
-            totalCollateral += s_collateralDeposited[msg.sender][s_collateralTokens[i]];
-        }
-
-        // get the ltv ratio for the basket of collateral
-        uint256 ltvRatio = 0;
-        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
-            ltvRatio += s_collateralTokenAndRatio[s_collateralTokens[i]];
-        }
-        ltvRatio = ltvRatio / s_collateralTokens.length;
-
-        // calculate the remaining collateral after withdrawal
-        uint256 remainingCollateral = totalCollateral - amount;
-
-        // calculate the remaining loan amount
-        uint256 remainingLoanAmount = remainingCollateral * ltvRatio;
-
-        // checks if the remaining collateral can cover the remaining loan amount
-        if (remainingLoanAmount < borrowedAmount) {
-            revert("Withdrawal would exceed LTV ratio");
-        }
+        // get the max amount a user can borrow
+        uint256 maxBorrow = getTotalBorrowableAmount();        
+        require (amount < maxBorrow - borrowedAmount, "Amount exceeds collateral borrow value");
 
         // update borrowed balance and total debt
         s_borrowedBalances[msg.sender] += amount;
         s_totalDebt += amount;
         // mint crabTokens
-        mintCrab(amount);
+        _mintCrab(amount);
 
-        // transfer crab from this contract to user
-        bool success = i_crabStableCoin.transfer(msg.sender, amount);
-        if (!success) {
-            revert CrabEngine__TransferFailed();
-        }
-
-        // todo event
+        emit CrabTokenBorrowed(msg.sender, amount);
     }
 
     /**
@@ -278,23 +255,33 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // Public Functions
     ///////////////////
 
-    // todo this  be a private function and should automatically mint as per the interface and mission 1 specs
-    // leaving it for now though, can worry about it later
-    /*
-     * @param amountCrabToMint: The amount of Crab you want to mint
-     * You can only mint Crab if you hav enough collateral
-     */
-    function mintCrab(uint256 amountCrabToMint) public moreThanZero(amountCrabToMint) nonReentrant {
-        s_userCrabBalance[msg.sender] += amountCrabToMint;
-        bool minted = i_crabStableCoin.mint(msg.sender, amountCrabToMint);
-        if (minted != true) {
-            revert CrabEngine__MintFailed();
+    function getTotalBorrowableAmount() public view returns (uint256 amount) {
+        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
+            address token = s_collateralTokens[i];
+            uint256 tokenAmount = s_collateralDeposited[msg.sender][token];
+            uint256 fullPrice = _getTokenPrice(token, tokenAmount);
+            // TODO: Problems that can arise from precision?
+            amount += fullPrice / s_collateralTokenAndRatio[token];
         }
     }
 
     ///////////////////
     // Private Functions
     ///////////////////
+
+    // todo this  be a private function and should automatically mint as per the interface and mission 1 specs
+    // leaving it for now though, can worry about it later
+    /*
+     * @param amountCrabToMint: The amount of Crab you want to mint
+     * You can only mint Crab if you hav enough collateral
+     */
+    function _mintCrab(uint256 amountCrabToMint) private moreThanZero(amountCrabToMint) nonReentrant {
+        s_userCrabBalance[msg.sender] += amountCrabToMint;
+        bool minted = i_crabStableCoin.mint(msg.sender, amountCrabToMint);
+        if (minted != true) {
+            revert CrabEngine__MintFailed();
+        }
+    }
 
     function _burnCrab(uint256 amountCrabToBurn, address onBehalfOf, address crabFrom) private {
         s_userCrabBalance[onBehalfOf] -= amountCrabToBurn;
@@ -305,6 +292,13 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             revert CrabEngine__TransferFailed();
         }
         i_crabStableCoin.burn(amountCrabToBurn);
+    }
+
+    function _getTokenPrice(address token, uint256 tokenAmount) private view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
+        //TEST IDEA fuzz this line here
+        return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
     }
 
     ////////////////////////////////////////////////////////////////////////////
