@@ -25,6 +25,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // Errors
     ///////////////////
+    // todo make sure we delete the ones we don't use
     error CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
     error CrabEngine__NeedsMoreThanZero();
     error CrabEngine__TokenNotAllowed(address token);
@@ -44,23 +45,21 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     CrabStableCoin private immutable i_crabStableCoin;
 
-    // todo need to change these 
-    uint256 private constant LIQUIDATION_THRESHOLD = 50; // This means you need to be 200% over-collateralized
-    uint256 private constant LIQUIDATION_BONUS = 10; // This means you get assets at a 10% discount when liquidating
-    uint256 private constant LIQUIDATION_PRECISION = 100;
-    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
-    uint256 private constant PRECISION = 1e18;
-    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
-    uint256 private constant FEED_PRECISION = 1e8;
-
+    // todo make sure we delete the ones we don't use
     /// @dev Mapping of token address to price feed address
     mapping(address collateralToken => address priceFeed) private s_priceFeeds;
     /// @dev Amount of collateral deposited by user
     mapping(address user => mapping(address collateralToken => uint256 amount)) private s_collateralDeposited;
     /// @dev Amount of crab minted by user
     mapping(address user => uint256 amount) private s_CrabMinted;
+    /// @dev collateral token address to ltv ratio allowed in percentage
+    mapping(address => uint256) private s_collateralTokenAndRatio;
+    /// @dev amount borrowed by user
+    mapping(address => uint256) private s_borrowedBalances;
     /// @dev If we know exactly how many tokens we have, we could make this immutable!
     address[] private s_collateralTokens;
+    /// @dev the total debt of the protocol
+    uint256 private s_totalDebt;
 
     ///////////////////
     // Events
@@ -87,6 +86,12 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     }
 
     constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address crabAddress) {
+        // todo get the price of the collateral tokens in chainlink
+        // todo sanity checks
+        s_collateralTokenAndRatio[0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 70; // Wrapped Ether
+        s_collateralTokenAndRatio[0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 80; // USDC
+        s_collateralTokenAndRatio[0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9] = 50; // Solana
+
         if (tokenAddresses.length != priceFeedAddresses.length) {
             revert CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
@@ -110,11 +115,31 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param collateralToken the token to supply as collateral.
      * @param amount the amount of collateralToken to provide.
      */
-    function depositCollateral(address collateralToken, uint256 amount) external {
-        require(s_priceFeeds[collateralToken] != address(0), "Collateral token not allowed");
-        require(amount > 0, "Amount must be more than zero");
+    function depositCollateral(
+        address collateralToken,
+        uint256 amount
+    )
+        external
+        moreThanZero(amount)
+        isAllowedToken(collateralToken)
+        nonReentrant
+    {
+        // get what amount already borrowed
+        uint256 borrowedAmount = s_borrowedBalances[msg.sender];
+
+        // check ltv allowed
+        uint256 ltvRatio = s_collateralTokenAndRatio[collateralToken];
+        uint256 totalCollateralValue = s_collateralDeposited[msg.sender][collateralToken] + amount;
+        require(totalCollateralValue >= borrowedAmount * ltvRatio / 100, "LTV ratio exceeded");
+
+        // update user collateral
         s_collateralDeposited[msg.sender][collateralToken] += amount;
-        require(IERC20(collateralToken).transferFrom(msg.sender, address(this), amount), "Transfer failed");
+
+        // transfer collateral from user to this contract
+        bool success = IERC20(collateralToken).transferFrom(msg.sender, address(this), amount);
+        if (!success) {
+            revert CrabEngine__TransferFailed();
+        }
         emit CollateralDeposited(msg.sender, collateralToken, amount);
     }
 
@@ -124,12 +149,26 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param collateralToken the token to withdraw from collateral.
      * @param amount the amount of collateral to withdraw.
      */
-    function withdrawCollateral(address collateralToken, uint256 amount) external {
-        require(s_priceFeeds[collateralToken] != address(0), "Collateral token not allowed");
-        require(amount > 0, "Amount must be more than zero");
-        require(s_collateralDeposited[msg.sender][collateralToken] >= amount, "Amount exceeds deposited collateral");
+    function withdrawCollateral(
+        address collateralToken,
+        uint256 amount
+    )
+        external
+        moreThanZero(amount)
+        isAllowedToken(collateralToken)
+        nonReentrant
+    {
+        // checks if the user has collateral
+        require(s_collateralDeposited[msg.sender][collateralToken] >= amount, "Insufficient collateral");
+
+        // update user collateral
         s_collateralDeposited[msg.sender][collateralToken] -= amount;
-        require(IERC20(collateralToken).transfer(msg.sender, amount), "Transfer failed");
+
+        // transfer collateral from this contract to user
+        bool success = IERC20(collateralToken).transfer(msg.sender, amount);
+        if (!success) {
+            revert CrabEngine__TransferFailed();
+        }
         emit CollateralRedeemed(msg.sender, msg.sender, collateralToken, amount);
     }
 
@@ -140,9 +179,10 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      *
      * @param amount the amount to borrow.
      */
-    function borrow(uint256 amount) external {
-        require(amount > 0, "Amount must be more than zero");
-        //todo check amount that can be borrowed
+    function borrow(uint256 amount) external moreThanZero(amount) nonReentrant {
+        s_totalDebt += amount;
+        s_borrowedBalances[msg.sender] += amount;
+        //todo build functionality for the exact amount that can be borrowed based on ltv
         mintCrab(amount);
     }
 
@@ -151,9 +191,11 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      *
      * @param amount the amount to repay.
      */
-    function repay(uint256 amount) external {
-        require(amount > 0, "Amount must be more than zero");
-        // todo fix this
+    function repay(uint256 amount) external moreThanZero(amount) {
+        // reduce borrowed balance and total debt
+        s_borrowedBalances[msg.sender] -= amount;
+        s_totalDebt -= amount;
+        // burn crabTokens
         _burnCrab(amount, msg.sender, msg.sender);
     }
 
@@ -167,10 +209,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      */
     function mintCrab(uint256 amountCrabToMint) public moreThanZero(amountCrabToMint) nonReentrant {
         s_CrabMinted[msg.sender] += amountCrabToMint;
-        // todo: check if health factor is broken
-        //revertIfHealthFactorIsBroken(msg.sender);
         bool minted = i_crabStableCoin.mint(msg.sender, amountCrabToMint);
-
         if (minted != true) {
             revert CrabEngine__MintFailed();
         }
@@ -190,51 +229,4 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         }
         i_crabStableCoin.burn(amountCrabToBurn);
     }
-
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    // External & Public View & Pure Functions
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-
-    function getPrecision() external pure returns (uint256) {
-        return PRECISION;
-    }
-
-    function getAdditionalFeedPrecision() external pure returns (uint256) {
-        return ADDITIONAL_FEED_PRECISION;
-    }
-
-    function getLiquidationThreshold() external pure returns (uint256) {
-        return LIQUIDATION_THRESHOLD;
-    }
-
-    function getLiquidationBonus() external pure returns (uint256) {
-        return LIQUIDATION_BONUS;
-    }
-
-    function getLiquidationPrecision() external pure returns (uint256) {
-        return LIQUIDATION_PRECISION;
-    }
-
-    function getMinHealthFactor() external pure returns (uint256) {
-        return MIN_HEALTH_FACTOR;
-    }
-
-    function getCollateralTokens() external view returns (address[] memory) {
-        return s_collateralTokens;
-    }
-
-    function getCrab() external view returns (address) {
-        return address(i_crabStableCoin);
-    }
-
-    function getCollateralTokenPriceFeed(address token) external view returns (address) {
-        return s_priceFeeds[token];
-    }
-
-    // todo maybe needed, not sure yet
-    // function getHealthFactor(address user) external view returns (uint256) {
-    //     return _healthFactor(user);
-    // }
 }

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
 
-
 interface IClawGovernanceCoin {
-
     /**
      * @dev Create a proposal for an ltv ratio for a supported collateral token.
      * Requires that the proposer holds > 1% of the totalSupply of the governance token.
@@ -23,5 +21,4 @@ interface IClawGovernanceCoin {
      * @param proposalId the id corresponding to the proposal to vote for.
      */
     function vote(uint256 proposalId) external;
-
 }
