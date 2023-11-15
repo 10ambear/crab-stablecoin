@@ -198,8 +198,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param amount the amount to borrow.
      */
     function borrow(uint256 amount) external moreThanZero(amount) nonReentrant {
-        // todo should burn tokens here
-        // todo burning should account for tlv
+        // todo should mint tokens here
+        // todo minting should account for tlv
         // // existing collateral plus amount
         // uint256 existingCollateralForUser = s_collateralDeposited[msg.sender][collateralToken];
         // uint256 borrowedAmount = s_borrowedBalances[msg.sender];
@@ -216,7 +216,18 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      *
      * @param amount the amount to repay.
      */
-    function repay(uint256 amount) external moreThanZero(amount) {
+    function repay(uint256 amount) external moreThanZero(amount) nonReentrant {
+        // todo should burn tokens here
+        // todo burning should account for tlv
+        // transfer crab from user to this contract
+        bool success = IERC20(i_crabStableCoin).transferFrom(msg.sender, address(this), amount);
+        if (!success) {
+            revert CrabEngine__TransferFailed();
+        }
+
+        // get the amount borrowed by the user
+        uint256 borrowedAmount = s_borrowedBalances[msg.sender];
+
         // reduce borrowed balance and total debt
         s_borrowedBalances[msg.sender] -= amount;
         s_totalDebt -= amount;
