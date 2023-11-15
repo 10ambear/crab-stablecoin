@@ -56,8 +56,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     mapping(address collateralToken => address priceFeed) private s_priceFeeds;
     /// @dev Amount of collateral deposited by user
     mapping(address user => mapping(address collateralToken => uint256 amount)) private s_collateralDeposited;
-    /// @dev Amount of DSC minted by user
-    mapping(address user => uint256 amount) private s_DSCMinted;
+    /// @dev Amount of crab minted by user
+    mapping(address user => uint256 amount) private s_CrabMinted;
     /// @dev If we know exactly how many tokens we have, we could make this immutable!
     address[] private s_collateralTokens;
 
@@ -85,7 +85,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         _;
     }
 
-    constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address dscAddress) {
+    constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address crabAddress) {
         if (tokenAddresses.length != priceFeedAddresses.length) {
             revert CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
@@ -95,13 +95,12 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
         }
-        crabStableCoin = CrabStableCoin(dscAddress);
+        crabStableCoin = CrabStableCoin(crabAddress);
     }
 
     ///////////////////
     // External Functions
     ///////////////////
-
 
     /**
      * @dev Deposit the specified collateral into the caller's position.
@@ -110,7 +109,13 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param collateralToken the token to supply as collateral.
      * @param amount the amount of collateralToken to provide.
      */
-    function depositCollateral(address collateralToken, uint256 amount) external { }
+    function depositCollateral(address collateralToken, uint256 amount) external {
+        require(s_priceFeeds[collateralToken] != address(0), "Collateral token not allowed");
+        require(amount > 0, "Amount must be more than zero");
+        s_collateralDeposited[msg.sender][collateralToken] += amount;
+        require(IERC20(collateralToken).transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        emit CollateralDeposited(msg.sender, collateralToken, amount);
+    }
 
     /**
      * @dev Withdraw the specified collateral from the caller's position.
@@ -118,7 +123,14 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param collateralToken the token to withdraw from collateral.
      * @param amount the amount of collateral to withdraw.
      */
-    function withdrawCollateral(address collateralToken, uint256 amount) external { }
+    function withdrawCollateral(address collateralToken, uint256 amount) external {
+        require(s_priceFeeds[collateralToken] != address(0), "Collateral token not allowed");
+        require(amount > 0, "Amount must be more than zero");
+        require(s_collateralDeposited[msg.sender][collateralToken] >= amount, "Amount exceeds deposited collateral");
+        s_collateralDeposited[msg.sender][collateralToken] -= amount;
+        require(IERC20(collateralToken).transfer(msg.sender, amount), "Transfer failed");
+        emit CollateralRedeemed(msg.sender, msg.sender, collateralToken, amount);
+    }
 
     /**
      * @dev Borrow protocol stablecoins against the caller's collateral.
@@ -127,20 +139,56 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      *
      * @param amount the amount to borrow.
      */
-    function borrow(uint256 amount) external { }
+    function borrow(uint256 amount) external {
+        require(amount > 0, "Amount must be more than zero");
+        uint256 healthFactorValue = CrabEngine__MintFailed(msg.sender);
+        require(healthFactorValue >= MIN_HEALTH_FACTOR, "Health factor too low");
+        require(mintCrab(msg.sender, amount), "Mint failed");
+    }
 
     /**
      * @dev Repay protocol stablecoins from the caller's debt.
      *
      * @param amount the amount to repay.
      */
-    function repay(uint256 amount) external { }
+    function repay(uint256 amount) external {
+        require(amount > 0, "Amount must be more than zero");
+        require(_burn(msg.sender, amount), "Burn failed");
+    }
+
+    ///////////////////
+    // Public Functions
+    ///////////////////
+
+    /*
+     * @param amountCrabToMint: The amount of Crab you want to mint
+     * You can only mint Crab if you hav enough collateral
+     */
+    function mintCrab(uint256 amountCrabToMint) public moreThanZero(amountCrabToMint) nonReentrant {
+        s_CrabMinted[msg.sender] += amountCrabToMint;
+        // todo: check if health factor is broken
+        //revertIfHealthFactorIsBroken(msg.sender);
+        bool minted = crabStableCoin.mint(msg.sender, amountCrabToMint);
+
+        if (minted != true) {
+            revert CrabEngine__MintFailed();
+        }
+    }
 
     ///////////////////
     // Private Functions
     ///////////////////
 
-    //todo or remove comments
+    function _burnCrab(uint256 amountCrabToBurn, address onBehalfOf, address crabFrom) private {
+        s_CrabMinted[onBehalfOf] -= amountCrabToBurn;
+
+        bool success = crabStableCoin.transferFrom(crabFrom, address(this), amountCrabToBurn);
+        // this check might be unnecessary
+        if (!success) {
+            revert CrabEngine__TransferFailed();
+        }
+        crabStableCoin.burn(amountCrabToBurn);
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -176,7 +224,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         return s_collateralTokens;
     }
 
-    function getDsc() external view returns (address) {
+    function getCrab() external view returns (address) {
         return address(crabStableCoin);
     }
 
@@ -184,6 +232,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         return s_priceFeeds[token];
     }
 
+    // todo maybe needed, not sure yet
     // function getHealthFactor(address user) external view returns (uint256) {
     //     return _healthFactor(user);
     // }
