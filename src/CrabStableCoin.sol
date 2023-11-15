@@ -13,7 +13,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
  * Collateral Type: Crypto
  *
  * This is the contract meant to be owned by CrabEngine. It is a ERC20 token that can 
- * be minted and burned by the DSCEngine smart contract.
+ * be minted and burned by the CrabEngine smart contract.
  */
 contract CrabStableCoin is ERC20Burnable, Ownable {
     error CrabStableCoin__AmountMustBeMoreThanZero();

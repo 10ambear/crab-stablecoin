@@ -34,6 +34,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     error CrabEngine__MintFailed();
     error CrabEngine__HealthFactorOk();
     error CrabEngine__HealthFactorNotImproved();
+    
 
     ///////////////////
     // Types
@@ -203,11 +204,14 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // Public Functions
     ///////////////////
 
+    // todo this  be a private function and should automatically mint as per the interface and mission 1 specs
+    // leaving it for now though, can worry about it later
     /*
      * @param amountCrabToMint: The amount of Crab you want to mint
      * You can only mint Crab if you hav enough collateral
      */
     function mintCrab(uint256 amountCrabToMint) public moreThanZero(amountCrabToMint) nonReentrant {
+        // todo check how much the user is allowed to mint
         s_CrabMinted[msg.sender] += amountCrabToMint;
         bool minted = i_crabStableCoin.mint(msg.sender, amountCrabToMint);
         if (minted != true) {
@@ -228,5 +232,11 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             revert CrabEngine__TransferFailed();
         }
         i_crabStableCoin.burn(amountCrabToBurn);
+    }
+
+
+    function _checkTest(uint256 amountCrabToBurn, address onBehalfOf, address crabFrom) private {
+
+
     }
 }
