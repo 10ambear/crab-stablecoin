@@ -103,7 +103,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     constructor(
         address[] memory tokenAddresses,
         address[] memory priceFeedAddresses,
-        address[] memory tvlRatios,
+        uint256[] memory tvlRatios,
         address crabAddress
     ) {
         if (tokenAddresses.length != priceFeedAddresses.length && tokenAddresses.length != tvlRatios.length) {
@@ -112,9 +112,10 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         // These feeds will be the USD pairs
         // For example ETH / USD or MKR / USD
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
+            s_collateralTokenAndRatio[tokenAddresses[i]] = tvlRatios[i];
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
-            s_collateralTokenAndRatio.push(tvlRatios[i]);
+
         }
         i_crabStableCoin = CrabStableCoin(crabAddress);
     }
@@ -170,7 +171,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
 
         // if the user borrowed funds
         if (borrowedAmount > 0) {
-            uint256 maxAUserCanBorrow = _getMaxCrabUserCanBorrow(msg.sender);
+        
         }
 
         // update user collateral
