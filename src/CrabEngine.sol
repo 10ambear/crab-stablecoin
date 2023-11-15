@@ -34,7 +34,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     error CrabEngine__MintFailed();
     error CrabEngine__HealthFactorOk();
     error CrabEngine__HealthFactorNotImproved();
-    
 
     ///////////////////
     // Types
@@ -51,8 +50,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     mapping(address collateralToken => address priceFeed) private s_priceFeeds;
     /// @dev Amount of collateral deposited by user
     mapping(address user => mapping(address collateralToken => uint256 amount)) private s_collateralDeposited;
-    /// @dev Amount of crab minted by user
-    mapping(address user => uint256 amount) private s_CrabMinted;
+    /// @dev users crab balance
+    mapping(address user => uint256 amount) private s_userCrabBalance;
     /// @dev collateral token address to ltv ratio allowed in percentage
     mapping(address => uint256) private s_collateralTokenAndRatio;
     /// @dev amount borrowed by user
@@ -85,6 +84,10 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         }
         _;
     }
+
+    ///////////////////
+    // constructor
+    ///////////////////
 
     constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address crabAddress) {
         // todo get the price of the collateral tokens in chainlink
@@ -125,14 +128,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         isAllowedToken(collateralToken)
         nonReentrant
     {
-        // get what amount already borrowed
-        uint256 borrowedAmount = s_borrowedBalances[msg.sender];
-
-        // check ltv allowed
-        uint256 ltvRatio = s_collateralTokenAndRatio[collateralToken];
-        uint256 totalCollateralValue = s_collateralDeposited[msg.sender][collateralToken] + amount;
-        require(totalCollateralValue >= borrowedAmount * ltvRatio / 100, "LTV ratio exceeded");
-
         // update user collateral
         s_collateralDeposited[msg.sender][collateralToken] += amount;
 
@@ -159,8 +154,30 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         isAllowedToken(collateralToken)
         nonReentrant
     {
-        // checks if the user has collateral
-        require(s_collateralDeposited[msg.sender][collateralToken] >= amount, "Insufficient collateral");
+        // get current collateral for user
+        uint256 totalUserCollateral = s_collateralDeposited[msg.sender][collateralToken];
+
+        // checks if the user has enough collateral
+        if (totalUserCollateral <= amount) {
+            revert("Insufficient collateral");
+        }
+
+        // get ltv ratio for token
+        uint256 ltvRatio = s_collateralTokenAndRatio[collateralToken];
+
+        // calculate the remaining collateral after withdrawal
+        uint256 remainingCollateral = totalUserCollateral - amount;
+
+        // calculate the remaining loan amount
+        uint256 remainingLoanAmount = remainingCollateral * ltvRatio;
+
+        // get the amount borrowed by the user
+        uint256 borrowedAmount = s_borrowedBalances[msg.sender];
+
+        // checks if the remaining collateral can cover the remaining loan amount
+        if (remainingLoanAmount < borrowedAmount) {
+            revert("Withdrawal would exceed LTV ratio");
+        }
 
         // update user collateral
         s_collateralDeposited[msg.sender][collateralToken] -= amount;
@@ -181,10 +198,17 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param amount the amount to borrow.
      */
     function borrow(uint256 amount) external moreThanZero(amount) nonReentrant {
-        s_totalDebt += amount;
-        s_borrowedBalances[msg.sender] += amount;
-        //todo build functionality for the exact amount that can be borrowed based on ltv
-        mintCrab(amount);
+        // todo should burn tokens here
+        // todo burning should account for tlv
+        // // existing collateral plus amount
+        // uint256 existingCollateralForUser = s_collateralDeposited[msg.sender][collateralToken];
+        // uint256 borrowedAmount = s_borrowedBalances[msg.sender];
+        // require(existingCollateralForUser + amount >= borrowedAmount * ltvRatio / 100, "LTV ratio exceeded");
+
+        // // get what amount already borrowed
+        // uint256 borrowedAmount = s_borrowedBalances[msg.sender];
+        // s_totalDebt += amount;
+        // s_borrowedBalances[msg.sender] += amount;
     }
 
     /**
@@ -211,8 +235,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * You can only mint Crab if you hav enough collateral
      */
     function mintCrab(uint256 amountCrabToMint) public moreThanZero(amountCrabToMint) nonReentrant {
-        // todo check how much the user is allowed to mint
-        s_CrabMinted[msg.sender] += amountCrabToMint;
+        s_userCrabBalance[msg.sender] += amountCrabToMint;
         bool minted = i_crabStableCoin.mint(msg.sender, amountCrabToMint);
         if (minted != true) {
             revert CrabEngine__MintFailed();
@@ -224,7 +247,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
 
     function _burnCrab(uint256 amountCrabToBurn, address onBehalfOf, address crabFrom) private {
-        s_CrabMinted[onBehalfOf] -= amountCrabToBurn;
+        s_userCrabBalance[onBehalfOf] -= amountCrabToBurn;
 
         bool success = i_crabStableCoin.transferFrom(crabFrom, address(this), amountCrabToBurn);
         // this check might be unnecessary
@@ -234,9 +257,12 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         i_crabStableCoin.burn(amountCrabToBurn);
     }
 
-
-    function _checkTest(uint256 amountCrabToBurn, address onBehalfOf, address crabFrom) private {
-
-
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    // External & Public View & Pure Functions
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    function getCrabTokenForUser(address user) external view returns (uint256) {
+        return s_userCrabBalance[user];
     }
 }
