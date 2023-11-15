@@ -32,8 +32,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     error CrabEngine__TransferFailed();
     error CrabEngine__BreaksHealthFactor(uint256 healthFactorValue);
     error CrabEngine__MintFailed();
-    error CrabEngine__HealthFactorOk();
-    error CrabEngine__HealthFactorNotImproved();
 
     ///////////////////
     // Types
@@ -48,16 +46,22 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // todo make sure we delete the ones we don't use
     /// @dev Mapping of token address to price feed address
     mapping(address collateralToken => address priceFeed) private s_priceFeeds;
+
     /// @dev Amount of collateral deposited by user
     mapping(address user => mapping(address collateralToken => uint256 amount)) private s_collateralDeposited;
+
     /// @dev users crab balance
     mapping(address user => uint256 amount) private s_userCrabBalance;
+
     /// @dev collateral token address to ltv ratio allowed in percentage
     mapping(address => uint256) private s_collateralTokenAndRatio;
+
     /// @dev amount borrowed by user
     mapping(address => uint256) private s_borrowedBalances;
+
     /// @dev If we know exactly how many tokens we have, we could make this immutable!
     address[] private s_collateralTokens;
+    
     /// @dev the total debt of the protocol
     uint256 private s_totalDebt;
 
@@ -198,17 +202,46 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param amount the amount to borrow.
      */
     function borrow(uint256 amount) external moreThanZero(amount) nonReentrant {
-        // todo should mint tokens here
-        // todo minting should account for tlv
-        // // existing collateral plus amount
-        // uint256 existingCollateralForUser = s_collateralDeposited[msg.sender][collateralToken];
-        // uint256 borrowedAmount = s_borrowedBalances[msg.sender];
-        // require(existingCollateralForUser + amount >= borrowedAmount * ltvRatio / 100, "LTV ratio exceeded");
+        // get the amount borrowed by the user
+        uint256 borrowedAmount = s_borrowedBalances[msg.sender];
 
-        // // get what amount already borrowed
-        // uint256 borrowedAmount = s_borrowedBalances[msg.sender];
-        // s_totalDebt += amount;
-        // s_borrowedBalances[msg.sender] += amount;
+        // get the total collateral for the user
+        uint256 totalCollateral = 0;
+        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
+            totalCollateral += s_collateralDeposited[msg.sender][s_collateralTokens[i]];
+        }
+
+        // get the ltv ratio for the basket of collateral
+        uint256 ltvRatio = 0;
+        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
+            ltvRatio += s_collateralTokenAndRatio[s_collateralTokens[i]];
+        }
+        ltvRatio = ltvRatio / s_collateralTokens.length;
+
+        // calculate the remaining collateral after withdrawal
+        uint256 remainingCollateral = totalCollateral - amount;
+
+        // calculate the remaining loan amount
+        uint256 remainingLoanAmount = remainingCollateral * ltvRatio;
+
+        // checks if the remaining collateral can cover the remaining loan amount
+        if (remainingLoanAmount < borrowedAmount) {
+            revert("Withdrawal would exceed LTV ratio");
+        }
+
+        // update borrowed balance and total debt
+        s_borrowedBalances[msg.sender] += amount;
+        s_totalDebt += amount;
+        // mint crabTokens
+        mintCrab(amount);
+
+        // transfer crab from this contract to user
+        bool success = i_crabStableCoin.transfer(msg.sender, amount);
+        if (!success) {
+            revert CrabEngine__TransferFailed();
+        }
+
+        // todo event
     }
 
     /**
@@ -217,22 +250,28 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param amount the amount to repay.
      */
     function repay(uint256 amount) external moreThanZero(amount) nonReentrant {
-        // todo should burn tokens here
-        // todo burning should account for tlv
+        // get the amount borrowed by the user
+        uint256 borrowedAmount = s_borrowedBalances[msg.sender];
+
+        // checks if the user has enough borrowed amount
+        if (borrowedAmount <= amount) {
+            revert("Insufficient borrowed amount");
+        }
+
+        // update borrowed balance and total debt
+        s_borrowedBalances[msg.sender] -= amount;
+        s_totalDebt -= amount;
+
+        // burn crabTokens
+        _burnCrab(amount, msg.sender, msg.sender);
+
         // transfer crab from user to this contract
-        bool success = IERC20(i_crabStableCoin).transferFrom(msg.sender, address(this), amount);
+        bool success = i_crabStableCoin.transferFrom(msg.sender, address(this), amount);
         if (!success) {
             revert CrabEngine__TransferFailed();
         }
 
-        // get the amount borrowed by the user
-        uint256 borrowedAmount = s_borrowedBalances[msg.sender];
-
-        // reduce borrowed balance and total debt
-        s_borrowedBalances[msg.sender] -= amount;
-        s_totalDebt -= amount;
-        // burn crabTokens
-        _burnCrab(amount, msg.sender, msg.sender);
+        // todo event
     }
 
     ///////////////////
