@@ -161,30 +161,14 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         isAllowedToken(collateralToken)
         nonReentrant
     {
-        // get current collateral for user
-        uint256 totalUserCollateral = s_collateralDeposited[msg.sender][collateralToken];
-
-        // checks if the user has enough collateral
-        if (totalUserCollateral <= amount) {
-            revert("Insufficient collateral");
-        }
-
-        // get ltv ratio for token
-        uint256 ltvRatio = s_collateralTokenAndRatio[collateralToken];
-
-        // calculate the remaining collateral after withdrawal
-        uint256 remainingCollateral = totalUserCollateral - amount;
-
-        // calculate the remaining loan amount
-        uint256 remainingLoanAmount = remainingCollateral * ltvRatio;
-
         // get the amount borrowed by the user
         uint256 borrowedAmount = s_borrowedBalances[msg.sender];
 
-        // checks if the remaining collateral can cover the remaining loan amount
-        if (remainingLoanAmount < borrowedAmount) {
-            revert("Withdrawal would exceed LTV ratio");
+        // if the user borrowed funds
+        if(borrowedAmount > 0){
+        
         }
+
 
         // update user collateral
         s_collateralDeposited[msg.sender][collateralToken] -= amount;
