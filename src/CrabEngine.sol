@@ -17,10 +17,8 @@ import { ICrabEngine } from "./interfaces/ICrabEngine.sol";
  * - Dollar Pegged
  * - Algorithmically Stable
  *
- * It is similar to DAI if DAI had no governance, no fees, and was backed by only WETH and WBTC.
- *
- * @notice This contract is the core of the Decentralized Stablecoin system. It handles all the logic
- * for minting and redeeming DSC, as well as depositing and withdrawing collateral.
+ * @notice This contract is the core of the Crab Decentralized Stablecoin system. It handles all the logic
+ * for minting and redeeming Crab, as well as depositing and withdrawing collateral.
  * @notice This contract is based on the MakerDAO DSS system
  */
 contract CrabEngine is ReentrancyGuard, ICrabEngine {
@@ -44,7 +42,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // State Variables
     ///////////////////
-    CrabStableCoin private immutable i_csc;
+    CrabStableCoin private immutable crabStableCoin;
 
     uint256 private constant LIQUIDATION_THRESHOLD = 50; // This means you need to be 200% over-collateralized
     uint256 private constant LIQUIDATION_BONUS = 10; // This means you get assets at a 10% discount when liquidating
@@ -97,12 +95,13 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
         }
-        i_csc = CrabStableCoin(dscAddress);
+        crabStableCoin = CrabStableCoin(dscAddress);
     }
 
     ///////////////////
-    // Functions
+    // External Functions
     ///////////////////
+
 
     /**
      * @dev Deposit the specified collateral into the caller's position.
@@ -138,16 +137,16 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     function repay(uint256 amount) external { }
 
     ///////////////////
-    // External Functions
-    ///////////////////
-
-    ///////////////////
-    // Public Functions
-    ///////////////////
-
-    ///////////////////
     // Private Functions
     ///////////////////
+
+    //todo or remove comments
+
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    // External & Public View & Pure Functions
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
 
     function getPrecision() external pure returns (uint256) {
         return PRECISION;
@@ -178,7 +177,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     }
 
     function getDsc() external view returns (address) {
-        return address(i_csc);
+        return address(crabStableCoin);
     }
 
     function getCollateralTokenPriceFeed(address token) external view returns (address) {
