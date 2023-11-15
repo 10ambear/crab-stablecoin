@@ -44,6 +44,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     CrabStableCoin private immutable crabStableCoin;
 
+    // todo need to change these
     uint256 private constant LIQUIDATION_THRESHOLD = 50; // This means you need to be 200% over-collateralized
     uint256 private constant LIQUIDATION_BONUS = 10; // This means you get assets at a 10% discount when liquidating
     uint256 private constant LIQUIDATION_PRECISION = 100;
