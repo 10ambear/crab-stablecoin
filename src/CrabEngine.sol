@@ -42,9 +42,9 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // State Variables
     ///////////////////
-    CrabStableCoin private immutable crabStableCoin;
+    CrabStableCoin private immutable i_crabStableCoin;
 
-    // todo need to change these
+    // todo need to change these 
     uint256 private constant LIQUIDATION_THRESHOLD = 50; // This means you need to be 200% over-collateralized
     uint256 private constant LIQUIDATION_BONUS = 10; // This means you get assets at a 10% discount when liquidating
     uint256 private constant LIQUIDATION_PRECISION = 100;
@@ -96,7 +96,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
         }
-        crabStableCoin = CrabStableCoin(crabAddress);
+        i_crabStableCoin = CrabStableCoin(crabAddress);
     }
 
     ///////////////////
@@ -142,9 +142,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      */
     function borrow(uint256 amount) external {
         require(amount > 0, "Amount must be more than zero");
-        uint256 healthFactorValue = CrabEngine__MintFailed(msg.sender);
-        require(healthFactorValue >= MIN_HEALTH_FACTOR, "Health factor too low");
-        require(mintCrab(msg.sender, amount), "Mint failed");
+        //todo check amount that can be borrowed
+        mintCrab(amount);
     }
 
     /**
@@ -154,7 +153,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      */
     function repay(uint256 amount) external {
         require(amount > 0, "Amount must be more than zero");
-        require(_burn(msg.sender, amount), "Burn failed");
+        // todo fix this
+        _burnCrab(amount, msg.sender, msg.sender);
     }
 
     ///////////////////
@@ -169,7 +169,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         s_CrabMinted[msg.sender] += amountCrabToMint;
         // todo: check if health factor is broken
         //revertIfHealthFactorIsBroken(msg.sender);
-        bool minted = crabStableCoin.mint(msg.sender, amountCrabToMint);
+        bool minted = i_crabStableCoin.mint(msg.sender, amountCrabToMint);
 
         if (minted != true) {
             revert CrabEngine__MintFailed();
@@ -183,12 +183,12 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     function _burnCrab(uint256 amountCrabToBurn, address onBehalfOf, address crabFrom) private {
         s_CrabMinted[onBehalfOf] -= amountCrabToBurn;
 
-        bool success = crabStableCoin.transferFrom(crabFrom, address(this), amountCrabToBurn);
+        bool success = i_crabStableCoin.transferFrom(crabFrom, address(this), amountCrabToBurn);
         // this check might be unnecessary
         if (!success) {
             revert CrabEngine__TransferFailed();
         }
-        crabStableCoin.burn(amountCrabToBurn);
+        i_crabStableCoin.burn(amountCrabToBurn);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -226,7 +226,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     }
 
     function getCrab() external view returns (address) {
-        return address(crabStableCoin);
+        return address(i_crabStableCoin);
     }
 
     function getCollateralTokenPriceFeed(address token) external view returns (address) {
