@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-
 // This is considered an Exogenous, Decentralized, Anchored (pegged), Crypto Collateralized low volitility coin
 
 // Layout of Contract:
@@ -41,7 +39,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * This is the contract meant to be owned by DSCEngine. It is a ERC20 token that can 
  * be minted and burned by the DSCEngine smart contract.
  */
-contract CrabStableCoin is ERC20Burnable, Ownable, ICrabStableCoin {
+contract CrabStableCoin is ERC20Burnable, Ownable {
     error CrabStableCoin__AmountMustBeMoreThanZero();
     error CrabStableCoin__BurnAmountExceedsBalance();
     error CrabStableCoin__NotZeroAddress();
