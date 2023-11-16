@@ -115,7 +115,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             s_collateralTokenAndRatio[tokenAddresses[i]] = tvlRatios[i];
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
-
         }
         i_crabStableCoin = CrabStableCoin(crabAddress);
     }
@@ -170,8 +169,22 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         uint256 borrowedAmount = s_borrowedBalances[msg.sender];
 
         // if the user borrowed funds
+        // if the user borrowed funds
         if (borrowedAmount > 0) {
-        
+            // calculate the total value of the collateral that the user is withdrawing
+            uint256 withdrawalValue =  _getPriceInUSDForTokens(collateralToken, amount);
+
+            // calculate the remaining value of the collateral that the user has deposited
+            uint256 remainingValue = s_collateralDeposited[msg.sender][collateralToken]
+                * _getPriceInUSDForTokens(collateralToken, amount) - withdrawalValue;
+
+            // calculate the new value of the loan that the user has outstanding
+            uint256 newLoanValue = remainingValue * s_collateralTokenAndRatio[collateralToken] / 100;
+
+            // check if the new value of the loan is less than the amount that the user has borrowed
+            if (newLoanValue > borrowedAmount) {
+                revert("Withdrawal would violate LTV ratio");
+            }
         }
 
         // update user collateral
@@ -247,7 +260,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {
             address token = s_collateralTokens[i];
             uint256 tokenAmount = s_collateralDeposited[msg.sender][token];
-            uint256 fullPrice = _getTokenPrice(token, tokenAmount);
+            uint256 fullPrice = _getPriceInUSDForTokens(token, tokenAmount);
             // TODO: Problems that can arise from precision?
             amount += fullPrice / s_collateralTokenAndRatio[token];
         }
@@ -282,7 +295,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         i_crabStableCoin.burn(amountCrabToBurn);
     }
 
-    function _getTokenPrice(address token, uint256 tokenAmount) private view returns (uint256) {
+    function _getPriceInUSDForTokens(address token, uint256 tokenAmount) private view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
         (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
         //TEST IDEA fuzz this line here
