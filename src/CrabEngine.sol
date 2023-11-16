@@ -158,39 +158,32 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      */
     function withdrawCollateral(
         address collateralToken,
-        uint256 amount
+        uint256 amount 
     )
         external
         moreThanZero(amount)
         isAllowedToken(collateralToken)
         nonReentrant
     {
-        // get the amount borrowed by the user
         uint256 borrowedAmount = s_borrowedBalances[msg.sender];
 
-        // if the user borrowed funds
-        // if the user borrowed funds
         if (borrowedAmount > 0) {
-            // calculate the total value of the collateral that the user is withdrawing
-            uint256 withdrawalValue =  _getPriceInUSDForTokens(collateralToken, amount);
 
-            // calculate the remaining value of the collateral that the user has deposited
-            uint256 remainingValue = s_collateralDeposited[msg.sender][collateralToken]
-                * _getPriceInUSDForTokens(collateralToken, amount) - withdrawalValue;
+            // todo definitely precision errors, but the logic works
+            uint256 remainingCollateralValueAfterWithdrawal = (
+                s_collateralDeposited[msg.sender][collateralToken] - amount
+            ) * _getPriceInUSDForTokens(collateralToken, amount);
 
-            // calculate the new value of the loan that the user has outstanding
-            uint256 newLoanValue = remainingValue * s_collateralTokenAndRatio[collateralToken] / 100;
+            uint256 collateralValueRequiredToKeepltv = (remainingCollateralValueAfterWithdrawal - borrowedAmount)
+                * s_collateralTokenAndRatio[collateralToken] / 100;
 
-            // check if the new value of the loan is less than the amount that the user has borrowed
-            if (newLoanValue > borrowedAmount) {
+            if (collateralValueRequiredToKeepltv <= remainingCollateralValueAfterWithdrawal) {
                 revert("Withdrawal would violate LTV ratio");
             }
         }
 
-        // update user collateral
         s_collateralDeposited[msg.sender][collateralToken] -= amount;
 
-        // transfer collateral from this contract to user
         bool success = IERC20(collateralToken).transfer(msg.sender, amount);
         if (!success) {
             revert CrabEngine__TransferFailed();
