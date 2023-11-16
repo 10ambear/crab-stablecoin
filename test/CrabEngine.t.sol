@@ -17,9 +17,9 @@ contract CrabEngineTest is Test {
 
         // Initialize the CrabEngine contract with your constructor arguments
         address[] memory tokenAddresses = new address[](3);
-        tokenAddresses[0] = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-        tokenAddresses[1] = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-        tokenAddresses[2] = 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9;
+        tokenAddresses[0] = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
+        tokenAddresses[1] = 0x8267cF9254734C6Eb452a7bb9AAF97B392258b21;
+        tokenAddresses[2] = 0x3e622317f8C93f7328350cF0B56d9eD4C620C5d6;
 
         // sepolia testnet addresses
         address[] memory priceFeedAddresses = new address[](3);
