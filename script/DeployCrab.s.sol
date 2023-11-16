@@ -6,7 +6,7 @@ import { HelperConfig } from "./HelperConfig.s.sol";
 import { CrabStableCoin } from "../src/CrabStableCoin.sol";
 import { CrabEngine } from "../src/CrabEngine.sol";
 
-contract DeployDSC is Script {
+contract DeployCrab is Script {
     address[] public tokenAddresses;
     address[] public priceFeedAddresses;
     uint256[] public tvlRatios;

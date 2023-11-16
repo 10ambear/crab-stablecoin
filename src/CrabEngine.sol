@@ -96,7 +96,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // constructor
     ///////////////////
-    
+
     //0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 70; // Wrapped Ether
     //0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 80; // USDC
     //0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9] = 50; // Solana
@@ -295,7 +295,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         i_crabStableCoin.burn(amountCrabToBurn);
     }
 
-    function _getPriceInUSDForTokens(address token, uint256 tokenAmount) private view returns (uint256) {
+    function _getPriceInUSDForTokens(address token, uint256 tokenAmount) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
         (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
         //TEST IDEA fuzz this line here
