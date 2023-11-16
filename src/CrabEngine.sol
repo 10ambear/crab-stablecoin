@@ -58,6 +58,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
 
     /// @dev amount borrowed by user
     mapping(address => uint256) private s_borrowedBalances;
+    mapping(address => uint256) private s_borrowDate;
 
     /// @dev If we know exactly how many tokens we have, we could make this immutable!
     address[] private s_collateralTokens;
@@ -65,6 +66,11 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     /// @dev the total debt of the protocol
     uint256 private s_totalDebt;
 
+    // @dev fee variables
+    uint256 private constant INTEREST_PER_SHARE_PER_SECOND = 3_170_979_198; // positionSize/10 = positionSize * seconds_per_year * interestPerSharePerSec
+    uint256 private aggregateInterestFees;
+
+    // @dev vars related to precision during oracle use
     uint256 private constant PRECISION = 1e18;
     uint256 private constant EQUALIZER_PRECISION = 1e10;
 
@@ -216,6 +222,9 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         // update borrowed balance and total debt
         s_borrowedBalances[msg.sender] += amount;
         s_totalDebt += amount;
+        // TODO: if someone comes to borrow a second time this will be overwritten
+        // fix it
+        s_borrowDate[msg.sender] == block.timestamp;
         // mint crabTokens
         _mintCrab(amount);
 
@@ -232,7 +241,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         uint256 borrowedAmount = s_borrowedBalances[msg.sender];
 
         // checks if the user has enough borrowed amount
-        if (borrowedAmount <= amount) {
+        if (borrowedAmount + _calculateFeeForPosition(msg.sender) <= amount) {
             revert("Insufficient borrowed amount");
         }
 
@@ -242,12 +251,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
 
         // burn crabTokens
         _burnCrab(amount, msg.sender, msg.sender);
-
-        // transfer crab from user to this contract
-        bool success = i_crabStableCoin.transferFrom(msg.sender, address(this), amount);
-        if (!success) {
-            revert CrabEngine__TransferFailed();
-        }
 
         // todo event
     }
@@ -269,6 +272,11 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // Private Functions
     ///////////////////
+
+    function _calculateFeeForPosition(address user) private view returns (uint256 fee) {
+        uint256 secondsSinceBorrow = block.timestamp - s_borrowDate[user];
+        fee = (s_borrowedBalances[user] * secondsSinceBorrow * INTEREST_PER_SHARE_PER_SECOND) / 1e18; // if you borrow 1000dollars you would have to pay back 1008
+    }
 
     // todo this  be a private function and should automatically mint as per the interface and mission 1 specs
     // leaving it for now though, can worry about it later
