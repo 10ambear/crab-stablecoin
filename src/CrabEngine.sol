@@ -30,7 +30,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     error CrabEngine__NeedsMoreThanZero();
     error CrabEngine__TokenNotAllowed(address token);
     error CrabEngine__TransferFailed();
-    error CrabEngine__BreaksHealthFactor(uint256 healthFactorValue);
     error CrabEngine__MintFailed();
 
     ///////////////////
@@ -82,6 +81,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // if redeemFrom != redeemedTo, then it was liquidated
     event CollateralRedeemed(address indexed redeemFrom, address indexed redeemTo, address token, uint256 amount);
     event CrabTokenBorrowed(address indexed to, uint256 indexed amount);
+    event BorrowedAmountRepaid(address indexed from, uint256 indexed amount);
     ///////////////////
     // Modifiers
     ///////////////////
@@ -104,6 +104,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // constructor
     ///////////////////
 
+    // the constructor is potentially dangerous
     //0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 70; // Wrapped Ether
     //0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 80; // USDC
     //0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9] = 50; // Solana
@@ -116,8 +117,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         if (tokenAddresses.length != priceFeedAddresses.length && tokenAddresses.length != tvlRatios.length) {
             revert CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
-        // These feeds will be the USD pairs
-        // For example ETH / USD or MKR / USD
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             s_collateralTokenAndRatio[tokenAddresses[i]] = tvlRatios[i];
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
@@ -244,7 +243,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         // burn crabTokens
         _burnCrab(amount, msg.sender, msg.sender);
 
-        // todo event
+        emit BorrowedAmountRepaid(msg.sender, amount);
     }
 
     ///////////////////
