@@ -12,7 +12,7 @@ contract CrabEngineTest is Test {
     DeployCrab public crabDeployer;
     CrabStableCoin public crabStableCoin;
     CrabEngine public crabEngine;
-    HelperConfig public helperConfig;
+    //HelperConfig public helperConfig;
 
     address ethUsdPriceFeed;
     address weth;
@@ -22,8 +22,8 @@ contract CrabEngineTest is Test {
 
     function setUp() public {
         crabDeployer = new DeployCrab();
-        (crabStableCoin, crabEngine, helperConfig) = crabDeployer.run();
-        (ethUsdPriceFeed, , , weth, , ,) = helperConfig.activeNetworkConfig();
+        //(crabStableCoin, crabEngine, helperConfig) = crabDeployer.run();
+        //(ethUsdPriceFeed, , , weth, , ,) = helperConfig.activeNetworkConfig();
         //ERC20Mock(weth)._mint(USER, USER_STARTING_BALANCE);
     }
 
@@ -40,11 +40,27 @@ contract CrabEngineTest is Test {
     function testDepositCollateral() public {
     }
 
+    function testDepositCollateralReverts() public {
+    }
+
     function testWithdrawCollateral() public {
     }
 
     function testWithdrawCollateralReverts() public {
+    }   
+
+    function testBorrow() public {
     }
+
+    function testBorrowReverts() public {
+    }
+
+    function testRepay() public {
+    }
+
+    function testRepayReverts() public {
+    }
+
 
 
 }

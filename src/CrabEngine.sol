@@ -6,6 +6,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CrabStableCoin } from "./CrabStableCoin.sol";
 import { ICrabEngine } from "./interfaces/ICrabEngine.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /*
  * @title CrabEngine
@@ -13,7 +14,6 @@ import { ICrabEngine } from "./interfaces/ICrabEngine.sol";
  *
  * The system is designed to be as minimal as possible, and have the tokens maintain a 1 token == $1 peg at all times.
  * This is a stablecoin with the properties:
- * - Exogenously Collateralized
  * - Dollar Pegged
  * - Algorithmically Stable
  *
@@ -33,14 +33,23 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     error CrabEngine__MintFailed();
 
     ///////////////////
-    // Types
+    // Types & interfaces
     ///////////////////
     using OracleLib for AggregatorV3Interface;
+    using SafeERC20 for IERC20;
+    CrabStableCoin private immutable i_crabStableCoin;
+
+    struct CollateralToken{
+        address priceFeedAddress;
+        uint16 ltvRatio;
+        uint16 decimals;
+    }
 
     ///////////////////
     // State Variables
     ///////////////////
-    CrabStableCoin private immutable i_crabStableCoin;
+    /// @dev Mapping of token address to collateral token struct
+    mapping(address tokenAddress => CollateralToken) private s_collateralTokenData;
 
     /// @dev Mapping of token address to price feed address
     mapping(address collateralToken => address priceFeed) private s_priceFeeds;
@@ -56,10 +65,11 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
 
     /// @dev amount of crab borrowed by user
     mapping(address => uint256) private s_borrowedBalancesInCrab;
+    /// @dev the date the user borrowed the crab
     mapping(address => uint256) private s_borrowDate;
 
     /// @dev the types of collateral tokens crab supports
-    /// @dev we're expecting weth, usdc, and solana atm
+    /// we're expecting weth, usdc, and solana atm
     address[] private s_typesOfCollateralTokens;
 
     /// @dev the total debt of the protocol
@@ -82,10 +92,10 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     event CollateralRedeemed(address indexed redeemFrom, address indexed redeemTo, address token, uint256 amount);
     event CrabTokenBorrowed(address indexed to, uint256 indexed amount);
     event BorrowedAmountRepaid(address indexed from, uint256 indexed amount);
+
     ///////////////////
     // Modifiers
     ///////////////////
-
     modifier moreThanZero(uint256 amount) {
         if (amount == 0) {
             revert CrabEngine__NeedsMoreThanZero();
@@ -104,31 +114,62 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // constructor
     ///////////////////
 
-    // the constructor is potentially dangerous
     //0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 70; // Wrapped Ether
     //0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 80; // USDC
     //0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9] = 50; // Solana
+
+    // can always make these updatable
+    address public constant WETH_ADDRESS =0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address public constant SOLANA_ADDRESS = 0xD31a59c85aE9D8edEFeC411D448f90841571b89c;
+
     constructor(
-        address[] memory tokenAddresses,
-        address[] memory priceFeedAddresses,
-        uint256[] memory tvlRatios,
-        address crabAddress
+        address crabAddress,
+        address wethPriceFeed,
+        address usdcPriceFeed,
+        address solanaPriceFeed
     ) {
-        if (tokenAddresses.length != priceFeedAddresses.length && tokenAddresses.length != tvlRatios.length) {
-            revert CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
-        }
-        for (uint256 i = 0; i < tokenAddresses.length; i++) {
-            s_collateralTokenAndRatio[tokenAddresses[i]] = tvlRatios[i];
-            s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
-            s_typesOfCollateralTokens.push(tokenAddresses[i]);
-        }
+        s_collateralTokenData[WETH_ADDRESS] = CollateralToken(
+            wethPriceFeed,
+            70,
+            18
+        );
+
+        s_collateralTokenData[USDC_ADDRESS] = CollateralToken(
+            usdcPriceFeed,
+            80,
+            6
+        );
+
+        s_collateralTokenData[SOLANA_ADDRESS] = CollateralToken(
+            solanaPriceFeed,
+            50,
+            18
+        );
+
         i_crabStableCoin = CrabStableCoin(crabAddress);
     }
+    // leaving this for now
+    // constructor(
+    //     address[] memory tokenAddresses,
+    //     address[] memory priceFeedAddresses,
+    //     uint256[] memory tvlRatios,
+    //     address crabAddress
+    // ) {
+    //     if (tokenAddresses.length != priceFeedAddresses.length && tokenAddresses.length != tvlRatios.length) {
+    //         revert CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
+    //     }
+    //     for (uint256 i = 0; i < tokenAddresses.length; i++) {
+    //         s_collateralTokenAndRatio[tokenAddresses[i]] = tvlRatios[i];
+    //         s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
+    //         s_typesOfCollateralTokens.push(tokenAddresses[i]);
+    //     }
+    //     i_crabStableCoin = CrabStableCoin(crabAddress);
+    // }
 
     ///////////////////
     // External Functions
     ///////////////////
-
     /**
      * @dev Deposit the specified collateral into the caller's position.
      * Only supported collateralToken's are allowed.
@@ -149,50 +190,46 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         s_collateralDeposited[msg.sender][collateralToken] += amount;
 
         // transfer collateral from user to this contract
-        bool success = IERC20(collateralToken).transferFrom(msg.sender, address(this), amount);
-        if (!success) {
-            revert CrabEngine__TransferFailed();
-        }
+        IERC20(collateralToken).safeTransferFrom(msg.sender, address(this), amount);
         emit CollateralDeposited(msg.sender, collateralToken, amount);
     }
 
     /**
      * @dev Withdraw the specified collateral from the caller's position.
      *
-     * @param collateralToken the token to withdraw from collateral.
+     * @param collateralTokenAddress the token to withdraw from collateral.
      * @param amount the amount of collateral to withdraw.
      */
     function withdrawCollateral(
-        address collateralToken,
+        address collateralTokenAddress,
         uint256 amount
     )
         external
         moreThanZero(amount)
-        isAllowedToken(collateralToken)
+        isAllowedToken(collateralTokenAddress)
         nonReentrant
     {
         uint256 amountOfCrabBorrowed = s_borrowedBalancesInCrab[msg.sender];
-        
+
         if (amountOfCrabBorrowed > 0) {
+            CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
+
             // todo definitely precision errors
             uint256 remainingCollateralValueAfterWithdrawal = (
-                s_collateralDeposited[msg.sender][collateralToken] - amount
-            ) * _getPriceInUSDForTokens(collateralToken, 1);
+                s_collateralDeposited[msg.sender][collateralTokenAddress] - amount
+            ) * _getPriceInUSDForTokens(collateralTokenAddress, 1);
 
             uint256 collateralValueRequiredToKeepltv = (remainingCollateralValueAfterWithdrawal - amountOfCrabBorrowed)
-                * s_collateralTokenAndRatio[collateralToken] / 100;
+                * tokenData.ltvRatio / 100;
             if (collateralValueRequiredToKeepltv > remainingCollateralValueAfterWithdrawal) {
                 revert("Withdrawal would violate LTV ratio");
             }
         }
 
-        s_collateralDeposited[msg.sender][collateralToken] -= amount;
+        s_collateralDeposited[msg.sender][collateralTokenAddress] -= amount;
 
-        bool success = IERC20(collateralToken).transfer(msg.sender, amount);
-        if (!success) {
-            revert CrabEngine__TransferFailed();
-        }
-        emit CollateralRedeemed(msg.sender, msg.sender, collateralToken, amount);
+        IERC20(collateralTokenAddress).safeTransfer(msg.sender, amount);
+        emit CollateralRedeemed(msg.sender, msg.sender, collateralTokenAddress, amount);
     }
 
     /**
@@ -235,13 +272,17 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         if (amountOfCrabBorrowed + _calculateFeeForPosition(msg.sender) <= amount) {
             revert("Insufficient borrowed amount");
         }
-
         // update borrowed balance and total debt
         s_borrowedBalancesInCrab[msg.sender] -= amount;
         s_protocolDebtInCrab -= amount;
 
+        // transfers the crab to the engine
+        bool success = i_crabStableCoin.transferFrom(msg.sender, address(this), amount);
+        if (!success) {
+            revert CrabEngine__TransferFailed();
+        }
         // burn crabTokens
-        _burnCrab(amount, msg.sender, msg.sender);
+        _burnCrab(amount, msg.sender);
 
         emit BorrowedAmountRepaid(msg.sender, amount);
     }
@@ -250,6 +291,10 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // Public Functions
     ///////////////////
 
+    /**
+     * @dev fuck knows @todo
+     *
+     */
     function getTotalBorrowableAmount() public view returns (uint256 amount) {
         for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
             address token = s_typesOfCollateralTokens[i];
@@ -264,19 +309,23 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // Private Functions
     ///////////////////
 
+    /**
+     * @dev Calculates the fee for the user's position.
+     *
+     * @param user the user address to calculate the fee for.
+     */
     function _calculateFeeForPosition(address user) private view returns (uint256 fee) {
         uint256 secondsSinceBorrow = block.timestamp - s_borrowDate[user];
         fee = (s_borrowedBalancesInCrab[user] * secondsSinceBorrow * INTEREST_PER_SHARE_PER_SECOND) / 1e18; // if you
             // borrow 1000dollars you would have to pay back 1008
     }
 
-    // todo this  be a private function and should automatically mint as per the interface and mission 1 specs
-    // leaving it for now though, can worry about it later
-    /*
-     * @param amountCrabToMint: The amount of Crab you want to mint
-     * You can only mint Crab if you hav enough collateral
+    /**
+     * @dev Automatically mints crab when the user borrows crab from the engine.
+     *
+     * @param amountCrabToMint the amount of crab to mint.
      */
-    function _mintCrab(uint256 amountCrabToMint) private moreThanZero(amountCrabToMint) nonReentrant {
+    function _mintCrab(uint256 amountCrabToMint) private moreThanZero(amountCrabToMint) {
         s_userCrabBalance[msg.sender] += amountCrabToMint;
         bool minted = i_crabStableCoin.mint(msg.sender, amountCrabToMint);
         if (minted != true) {
@@ -284,30 +333,26 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         }
     }
 
-    function _burnCrab(uint256 amountCrabToBurn, address onBehalfOf, address crabFrom) private {
-        s_userCrabBalance[onBehalfOf] -= amountCrabToBurn;
-
-        bool success = i_crabStableCoin.transferFrom(crabFrom, address(this), amountCrabToBurn);
-        // this check might be unnecessary
-        if (!success) {
-            revert CrabEngine__TransferFailed();
-        }
+    /**
+     * @dev Automatically burns crab when the user repays their loan.
+     *
+     * @param amountCrabToBurn the amount of crab to burn.
+     * @param user the address where the crab is getting burnt.
+     */
+    function _burnCrab(uint256 amountCrabToBurn, address user) private moreThanZero(amountCrabToBurn) {
+        s_userCrabBalance[user] -= amountCrabToBurn;
         i_crabStableCoin.burn(amountCrabToBurn);
     }
 
+    /**
+     * @dev gets the usd price for the tokens the protocol
+     *
+     * @param token the supported token
+     * @param tokenAmount the amount of tokens
+     */
     function _getPriceInUSDForTokens(address token, uint256 tokenAmount) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
         (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
-        //TEST IDEA fuzz this line here
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    // External & Public View & Pure Functions
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    function getCrabTokenForUser(address user) external view returns (uint256) {
-        return s_userCrabBalance[user];
     }
 }
