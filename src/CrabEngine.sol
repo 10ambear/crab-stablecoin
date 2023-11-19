@@ -8,6 +8,8 @@ import { CrabStableCoin } from "./CrabStableCoin.sol";
 import { ICrabEngine } from "./interfaces/ICrabEngine.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import "forge-std/console.sol";
+
 /*
  * @title CrabEngine
  * @author sheepGhosty & bLnk
@@ -135,12 +137,12 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address public constant SOLANA_ADDRESS = 0xD31a59c85aE9D8edEFeC411D448f90841571b89c;
 
-    constructor(address crabAddress, address wethPriceFeed, address usdcPriceFeed, address solanaPriceFeed) {
-        s_collateralTokenData[WETH_ADDRESS] = CollateralToken(wethPriceFeed, 70, 18);
+    constructor(address crabAddress, address wethPriceFeed, address weth) {
+        s_collateralTokenData[weth] = CollateralToken(wethPriceFeed, 70, 18);
 
-        s_collateralTokenData[USDC_ADDRESS] = CollateralToken(usdcPriceFeed, 80, 6);
+        //s_collateralTokenData[USDC_ADDRESS] = CollateralToken(usdcPriceFeed, 80, 6);
 
-        s_collateralTokenData[SOLANA_ADDRESS] = CollateralToken(solanaPriceFeed, 50, 18);
+        //s_collateralTokenData[SOLANA_ADDRESS] = CollateralToken(solanaPriceFeed, 50, 18);
 
         i_crabStableCoin = CrabStableCoin(crabAddress);
     }
@@ -306,6 +308,10 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // Public Functions
     ///////////////////
 
+    function addCoinAndFeed(address coin, address feed, uint16 ltv, uint16 decimals) public {
+        s_collateralTokenData[coin] = CollateralToken(feed, ltv, decimals);
+    }
+
     /**
      * @dev fuck knows @todo
      *
@@ -372,7 +378,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param tokenAmount the amount of tokens
      */
     function _getPriceInUSDForTokens(address token, uint256 tokenAmount) public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_collateralTokenData[token].priceFeedAddress);
         (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
         //TEST IDEA fuzz this line here
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
