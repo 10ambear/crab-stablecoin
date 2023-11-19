@@ -204,6 +204,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         isAllowedToken(collateralTokenAddress)
         nonReentrant
     {
+        require (s_userBorrows[msg.sender].mustRepay == false, "User cannot withdraw collateral before repaying owed debt.");
         uint256 amountOfCrabBorrowed = s_userBorrows[msg.sender].borrowAmount1 + s_userBorrows[msg.sender].borrowAmount2;
 
         if (amountOfCrabBorrowed > 0) {
@@ -276,12 +277,16 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         // get the amount borrowed by the user
         uint256 amountOfCrabBorrowed = s_userBorrows[msg.sender].borrowAmount1;
         amountOfCrabBorrowed += s_userBorrows[msg.sender].borrowAmount2;
+        uint256 owedFees = _calculateFeeForPosition(msg.sender);
 
         // checks if the user has enough borrowed amount
-        if (amountOfCrabBorrowed + _calculateFeeForPosition(msg.sender) <= amount) {
+        if (amountOfCrabBorrowed + owedFees < amount) {
             revert("Insufficient borrowed amount");
         }
 
+        if (amountOfCrabBorrowed + owedFees != amount) {
+            revert("User must payback the EXACT amount owed.");
+        }
         // update borrowed balance and reset user
         s_protocolDebtInCrab -= amount;
         delete s_userBorrows[msg.sender];        
