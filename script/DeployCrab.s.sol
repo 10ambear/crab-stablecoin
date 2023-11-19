@@ -12,6 +12,15 @@ contract DeployCrab is Script {
     address[3] public priceFeedAddresses;
     address[3] public tokenAddresses;
     
+    // struct NetworkConfig {
+    //     address wethUsdPriceFeed;
+    //     address weth;
+    //     address usdcUsdPriceFeed;
+    //     address usdc;
+    //     address solUsdPriceFeed;
+    //     address sol;
+    //     uint256 deployerKey;
+    // }
 
     function run() external returns (CrabStableCoin, CrabEngine, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig(); // This comes with our mocks!
@@ -21,15 +30,8 @@ contract DeployCrab is Script {
         //address usdcUsdPriceFeed;
         //address solUsdPriceFeed;
         uint256 deployerKey;
-        (
-            priceFeedAddresses[0],
-            ,//tokenAddresses[0],
-            priceFeedAddresses[1],
-            ,//tokenAddresses[1],
-            priceFeedAddresses[2],
-            ,//tokenAddresses[2],
-            deployerKey
-        ) = helperConfig.activeNetworkConfig();
+
+        (priceFeedAddresses[0], tokenAddresses[0], priceFeedAddresses[1], priceFeedAddresses[2], deployerKey) = helperConfig.activeNetworkConfig();
 
         console.log("deploycrab after active network");
         console.log(priceFeedAddresses[0]);
@@ -37,9 +39,17 @@ contract DeployCrab is Script {
 
         vm.startBroadcast(deployerKey);
         CrabStableCoin crab = new CrabStableCoin();
+
+        console.log("triple price feed??\n\n\n");
+        console.log(priceFeedAddresses[0]);
+        console.log(priceFeedAddresses[1]);
+        console.log(priceFeedAddresses[2]);
         CrabEngine crabEngine = new CrabEngine(
             address(crab),
-            priceFeedAddresses[0], priceFeedAddresses[1], priceFeedAddresses[2]
+            priceFeedAddresses[0],
+            priceFeedAddresses[1],
+            priceFeedAddresses[2], 
+            tokenAddresses[0]
         );
 
         console.log("deploycrab after start broadcast and new CrabEngine");

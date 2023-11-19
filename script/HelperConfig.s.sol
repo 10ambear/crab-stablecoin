@@ -32,9 +32,7 @@ contract HelperConfig is Script {
         address wethUsdPriceFeed;
         address weth;
         address usdcUsdPriceFeed;
-        address usdc;
         address solUsdPriceFeed;
-        address sol;
         uint256 deployerKey;
     }
 
@@ -92,9 +90,7 @@ contract HelperConfig is Script {
             wethUsdPriceFeed: address(EthUsdPriceFeed),
             weth: address(wethMock),
             usdcUsdPriceFeed: address(UsdcUsdPriceFeed),
-            usdc: address(usdcMock),
             solUsdPriceFeed: address(SolUsdPriceFeed),
-            sol: address(solMock),
             deployerKey: DEFAULT_ANVIL_PRIVATE_KEY
         });
 
