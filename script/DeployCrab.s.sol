@@ -9,21 +9,25 @@ import { CrabEngine } from "../src/CrabEngine.sol";
 import "forge-std/console.sol";
 
 contract DeployCrab is Script {
+    address[3] public priceFeedAddresses;
+    address[3] public tokenAddresses;
     
 
     function run() external returns (CrabStableCoin, CrabEngine, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig(); // This comes with our mocks!
         console.log("deploycrab run");
 
-        address[3] memory priceFeedAddresses;
         //address wethPriceFeed;
         //address usdcUsdPriceFeed;
         //address solUsdPriceFeed;
         uint256 deployerKey;
         (
             priceFeedAddresses[0],
+            ,//tokenAddresses[0],
             priceFeedAddresses[1],
+            ,//tokenAddresses[1],
             priceFeedAddresses[2],
+            ,//tokenAddresses[2],
             deployerKey
         ) = helperConfig.activeNetworkConfig();
 

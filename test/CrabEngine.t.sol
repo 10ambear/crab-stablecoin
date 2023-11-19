@@ -16,6 +16,7 @@ contract CrabEngineTest is Test {
     HelperConfig public helperConfig;
 
     address[3] priceFeedAddresses;
+    address[3] public tokenAddresses;
     address weth;
     address public USER = makeAddr("user");
     uint256 public constant AMOUNT_COLLATERAL = 10 ether; 
@@ -24,14 +25,21 @@ contract CrabEngineTest is Test {
     function setUp() public {
         crabDeployer = new DeployCrab();
         (crabStableCoin, crabEngine, helperConfig) = crabDeployer.run();
-        (priceFeedAddresses[0], priceFeedAddresses[1], priceFeedAddresses[2], ) = helperConfig.activeNetworkConfig();
+        (priceFeedAddresses[0], tokenAddresses[0],
+        priceFeedAddresses[1], tokenAddresses[1],
+        priceFeedAddresses[2], tokenAddresses[2], ) = helperConfig.activeNetworkConfig();
 
         console.log(priceFeedAddresses[0]);
         //ERC20Mock(weth)._mint(USER, USER_STARTING_BALANCE);
     }
 
     function testGetPriceInUSDForTokens() view public {
-        crabEngine._getPriceInUSDForTokens(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 10);
+        console.log("we getting called??????????????????? ");
+        console.log("aight wtf is the address then?");
+        console.log(tokenAddresses[1]);
+        uint256 price = crabEngine._TESTTEST(priceFeedAddresses[1], 10);
+        console.log("BITCH ASS PROBLEM I FUCKIONG GOT U ");
+        console.log("AND THE DUMASS PRICE IS ", price);
         // uint256 ethAmount = 15; 
         // uint256 expectedUsd = 30_000e18;
         // uint256 actualUsd = crabEngine._getPriceInUSDForTokens(ethAmount, ethUsdPriceFeed);

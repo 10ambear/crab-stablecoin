@@ -383,6 +383,16 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
     }
 
+    function _TESTTEST(address priceFeed, uint256 tokenAmount) public view returns (uint256) {
+        console.log("fiuuuuu");
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeed);
+        console.log("biuuuuuu");
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
+        console.log("SKIBIDI PA PA");
+        //TEST IDEA fuzz this line here
+        return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
+    }
+
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     // External & Public View & Pure Functions

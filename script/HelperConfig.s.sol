@@ -30,8 +30,11 @@ contract HelperConfig is Script {
 
     struct NetworkConfig {
         address wethUsdPriceFeed;
+        address weth;
         address usdcUsdPriceFeed;
+        address usdc;
         address solUsdPriceFeed;
+        address sol;
         uint256 deployerKey;
     }
 
@@ -48,14 +51,14 @@ contract HelperConfig is Script {
     }
 
     function getSepoliaEthConfig() public view returns (NetworkConfig memory sepoliaNetworkConfig) {
-        sepoliaNetworkConfig = NetworkConfig({
-            wethUsdPriceFeed: 0x694AA1769357215DE4FAC081bf1f309aDC325306,
-            usdcUsdPriceFeed: 0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E,
-            // // this is a dai usd price feed since there's no chainlink sol feed on sepolia testnet
-            // // I could be wrong, but I couldn't see one, so we're going to pretend
-            solUsdPriceFeed: 0x14866185B1962B63C3Ea9E03Bc1da838bab34C19,
-            deployerKey: vm.envUint("PRIVATE_KEY")
-        });
+        // sepoliaNetworkConfig = NetworkConfig({
+        //     wethUsdPriceFeed: 0x694AA1769357215DE4FAC081bf1f309aDC325306,
+        //     usdcUsdPriceFeed: 0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E,
+        //     // // this is a dai usd price feed since there's no chainlink sol feed on sepolia testnet
+        //     // // I could be wrong, but I couldn't see one, so we're going to pretend
+        //     solUsdPriceFeed: 0x14866185B1962B63C3Ea9E03Bc1da838bab34C19,
+        //     deployerKey: vm.envUint("PRIVATE_KEY")
+        // });
     }
 
     function getOrCreateAnvilEthConfig() public returns (NetworkConfig memory anvilNetworkConfig) {
@@ -69,7 +72,7 @@ contract HelperConfig is Script {
             DECIMALS,
             ETH_USD_PRICE
         );
-        ERC20Mock wethMock = new ERC20Mock("WETH", "WETH", msg.sender, 1000e8);
+        ERC20Mock wethMock = new ERC20Mock("WETH", "WETH", msg.sender, DECIMALS);
 
 
         MockV3Aggregator UsdcUsdPriceFeed = new MockV3Aggregator(
@@ -82,16 +85,16 @@ contract HelperConfig is Script {
             DECIMALS,
             SOL_USD_PRICE
         );
-        ERC20Mock solMock = new ERC20Mock("SOL", "SOL", msg.sender, 1000e8);
+        ERC20Mock solMock = new ERC20Mock("SOL", "SOL", msg.sender, DECIMALS);
         vm.stopBroadcast();
 
         anvilNetworkConfig = NetworkConfig({
             wethUsdPriceFeed: address(EthUsdPriceFeed),
-            //weth: address(wethMock),
+            weth: address(wethMock),
             usdcUsdPriceFeed: address(UsdcUsdPriceFeed),
-            //usdc: address(usdcMock),
+            usdc: address(usdcMock),
             solUsdPriceFeed: address(SolUsdPriceFeed),
-            //sol: address(solMock),
+            sol: address(solMock),
             deployerKey: DEFAULT_ANVIL_PRIVATE_KEY
         });
 

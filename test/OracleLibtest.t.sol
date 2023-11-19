@@ -6,6 +6,7 @@ import {MockV3Aggregator} from "./mocks/MockV3Aggregator.sol";
 import {Test, console} from "forge-std/Test.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {OracleLib, AggregatorV3Interface} from "../src/libraries/OracleLib.sol";
+import "forge-std/console.sol";
 
 contract OracleLibTest is StdCheats, Test {
     using OracleLib for AggregatorV3Interface;
@@ -41,5 +42,17 @@ contract OracleLibTest is StdCheats, Test {
 
         vm.expectRevert(OracleLib.OracleLib__StalePrice.selector);
         AggregatorV3Interface(address(aggregator)).staleCheckLatestRoundData();
+    }
+
+    function testGetPrice() public {
+        MockV3Aggregator UsdcUsdPriceFeed = new MockV3Aggregator(
+            18,
+            1000e8
+        );
+
+        (, int256 price,,,) = AggregatorV3Interface(address(UsdcUsdPriceFeed)).staleCheckLatestRoundData();
+        //console.log(price);
+        assertEq(price, 1);
+        assertEq(price, 2);
     }
 }
