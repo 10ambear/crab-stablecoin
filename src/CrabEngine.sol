@@ -8,6 +8,8 @@ import { CrabStableCoin } from "./CrabStableCoin.sol";
 import { ICrabEngine } from "./interfaces/ICrabEngine.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import "forge-std/console.sol";
+
 /*
  * @title CrabEngine
  * @author sheepGhosty & bLnk
@@ -372,8 +374,11 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param tokenAmount the amount of tokens
      */
     function _getPriceInUSDForTokens(address token, uint256 tokenAmount) public view returns (uint256) {
+        console.log("ofc 1111111111111111");
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        console.log("2+2 is 4 minus 1 thats 3");
         (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
+        console.log("quick maffs");
         //TEST IDEA fuzz this line here
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
     }
