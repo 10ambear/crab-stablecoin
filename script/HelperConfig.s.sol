@@ -41,11 +41,9 @@ contract HelperConfig is Script {
     uint256 public DEFAULT_ANVIL_PRIVATE_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 
     constructor() {
-        console.log("HELPER CONFIG PRE IF");
         if (block.chainid == 11_155_111) {
             activeNetworkConfig = getSepoliaEthConfig();
         } else {
-            console.log("HELPER CONFIG IN ELSE");
             activeNetworkConfig = getOrCreateAnvilEthConfig();
         }
     }
@@ -74,14 +72,6 @@ contract HelperConfig is Script {
         );
         ERC20Mock wethMock = new ERC20Mock("WETH", "WETH", msg.sender, DECIMALS);
 
-
-        
-
-        // MockV3Aggregator SolUsdPriceFeed = new MockV3Aggregator(
-        //     DECIMALS,
-        //     SOL_USD_PRICE
-        // );
-        // ERC20Mock solMock = new ERC20Mock("SOL", "SOL", msg.sender, DECIMALS);
         vm.stopBroadcast();
 
         anvilNetworkConfig = NetworkConfig({
@@ -89,8 +79,6 @@ contract HelperConfig is Script {
             weth: address(wethMock),
             deployerKey: DEFAULT_ANVIL_PRIVATE_KEY
         });
-
-        console.log("HELPER CONFIG GET OR CREATE ANVIL DONE");
     }
 
     function createMock(string calldata name, uint8 decimals, int256 priceInUsd) public returns (ERC20Mock coin, MockV3Aggregator feed) {
