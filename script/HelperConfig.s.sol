@@ -31,10 +31,6 @@ contract HelperConfig is Script {
     struct NetworkConfig {
         address wethUsdPriceFeed;
         address weth;
-        // address usdcUsdPriceFeed;
-        // address usdc;
-        // address solUsdPriceFeed;
-        // address sol;
         uint256 deployerKey;
     }
 

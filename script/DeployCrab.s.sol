@@ -12,30 +12,13 @@ contract DeployCrab is Script {
     address[3] public priceFeedAddresses;
     address[3] public tokenAddresses;
     
-    // struct NetworkConfig {
-    //     address wethUsdPriceFeed;
-    //     address weth;
-    //     address usdcUsdPriceFeed;
-    //     address usdc;
-    //     address solUsdPriceFeed;
-    //     address sol;
-    //     uint256 deployerKey;
-    // }
 
     function run() external returns (CrabStableCoin, CrabEngine, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig(); // This comes with our mocks!
-        console.log("deploycrab run");
 
-        //address wethPriceFeed;
-        //address usdcUsdPriceFeed;
-        //address solUsdPriceFeed;
         uint256 deployerKey;
 
         (priceFeedAddresses[0], tokenAddresses[0], deployerKey) = helperConfig.activeNetworkConfig();
-
-        console.log("deploycrab after active network");
-        console.log(priceFeedAddresses[0]);
-        console.log();
 
         vm.startBroadcast(deployerKey);
         CrabStableCoin crab = new CrabStableCoin();

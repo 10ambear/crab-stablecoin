@@ -48,7 +48,6 @@ contract CrabEngineTest is Test {
         crabEngine.addCoinAndFeed(address(coin2), address(feed2), 50, 18);
         price = crabEngine._getPriceInUSDForTokens(address(coin2), 10);
         console.log(price);
-        //uint256 price = crabEngine._getPriceInUSDForTokens(tokenAddresses[0], 10);
 
         // uint256 ethAmount = 15; 
         // uint256 expectedUsd = 30_000e18;
