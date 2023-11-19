@@ -137,21 +137,14 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address public constant SOLANA_ADDRESS = 0xD31a59c85aE9D8edEFeC411D448f90841571b89c;
 
-    constructor(address crabAddress, address wethPriceFeed, address usdcPriceFeed, address solanaPriceFeed,
-                address weth) {
+    constructor(address crabAddress, address wethPriceFeed, address weth) {
         s_collateralTokenData[weth] = CollateralToken(wethPriceFeed, 70, 18);
 
-        s_collateralTokenData[USDC_ADDRESS] = CollateralToken(usdcPriceFeed, 80, 6);
+        //s_collateralTokenData[USDC_ADDRESS] = CollateralToken(usdcPriceFeed, 80, 6);
 
-        s_collateralTokenData[SOLANA_ADDRESS] = CollateralToken(solanaPriceFeed, 50, 18);
+        //s_collateralTokenData[SOLANA_ADDRESS] = CollateralToken(solanaPriceFeed, 50, 18);
 
         i_crabStableCoin = CrabStableCoin(crabAddress);
-
-
-
-        //console.log(priceFeedAddresses[0]);
-        //console.log(priceFeedAddresses[1]);
-        //console.log(priceFeedAddresses[2]);
     }
     // leaving this for now
     // constructor(
@@ -315,6 +308,10 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // Public Functions
     ///////////////////
 
+    function addCoinAndFeed(address coin, address feed, uint16 ltv, uint16 decimals) public {
+        s_collateralTokenData[coin] = CollateralToken(feed, ltv, decimals);
+    }
+
     /**
      * @dev fuck knows @todo
      *
@@ -381,22 +378,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
      * @param tokenAmount the amount of tokens
      */
     function _getPriceInUSDForTokens(address token, uint256 tokenAmount) public view returns (uint256) {
-        console.log("ofc 1111111111111111");
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_collateralTokenData[token].priceFeedAddress);
-        console.log("price feed IS ? ? ? ?\n", s_collateralTokenData[token].priceFeedAddress);
-        console.log("2+2 is 4 minus 1 thats 3");
         (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
-        console.log("quick maffs");
-        //TEST IDEA fuzz this line here
-        return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
-    }
-
-    function _TESTTEST(address priceFeed, uint256 tokenAmount) public view returns (uint256) {
-        console.log("fiuuuuu");
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeed);        
-        console.log("biuuuuuu");
-        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
-        console.log("SKIBIDI PA PA");
         //TEST IDEA fuzz this line here
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
     }

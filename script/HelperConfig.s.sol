@@ -31,8 +31,10 @@ contract HelperConfig is Script {
     struct NetworkConfig {
         address wethUsdPriceFeed;
         address weth;
-        address usdcUsdPriceFeed;
-        address solUsdPriceFeed;
+        // address usdcUsdPriceFeed;
+        // address usdc;
+        // address solUsdPriceFeed;
+        // address sol;
         uint256 deployerKey;
     }
 
@@ -73,27 +75,30 @@ contract HelperConfig is Script {
         ERC20Mock wethMock = new ERC20Mock("WETH", "WETH", msg.sender, DECIMALS);
 
 
-        MockV3Aggregator UsdcUsdPriceFeed = new MockV3Aggregator(
-            DECIMALS,
-            USDC_USD_PRICE
-        );
-        ERC20Mock usdcMock = new ERC20Mock("USDC", "USDC", msg.sender, 1000e8);
+        
 
-        MockV3Aggregator SolUsdPriceFeed = new MockV3Aggregator(
-            DECIMALS,
-            SOL_USD_PRICE
-        );
-        ERC20Mock solMock = new ERC20Mock("SOL", "SOL", msg.sender, DECIMALS);
+        // MockV3Aggregator SolUsdPriceFeed = new MockV3Aggregator(
+        //     DECIMALS,
+        //     SOL_USD_PRICE
+        // );
+        // ERC20Mock solMock = new ERC20Mock("SOL", "SOL", msg.sender, DECIMALS);
         vm.stopBroadcast();
 
         anvilNetworkConfig = NetworkConfig({
             wethUsdPriceFeed: address(EthUsdPriceFeed),
             weth: address(wethMock),
-            usdcUsdPriceFeed: address(UsdcUsdPriceFeed),
-            solUsdPriceFeed: address(SolUsdPriceFeed),
             deployerKey: DEFAULT_ANVIL_PRIVATE_KEY
         });
 
         console.log("HELPER CONFIG GET OR CREATE ANVIL DONE");
+    }
+
+    function createMock(string calldata name, uint8 decimals, int256 priceInUsd) public returns (ERC20Mock coin, MockV3Aggregator feed) {
+        vm.startBroadcast();
+
+        feed = new MockV3Aggregator(decimals, priceInUsd);
+        coin = new ERC20Mock(name, name, msg.sender, 1000e8);
+
+        vm.stopBroadcast();
     }
 }

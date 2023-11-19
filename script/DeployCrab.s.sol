@@ -31,7 +31,7 @@ contract DeployCrab is Script {
         //address solUsdPriceFeed;
         uint256 deployerKey;
 
-        (priceFeedAddresses[0], tokenAddresses[0], priceFeedAddresses[1], priceFeedAddresses[2], deployerKey) = helperConfig.activeNetworkConfig();
+        (priceFeedAddresses[0], tokenAddresses[0], deployerKey) = helperConfig.activeNetworkConfig();
 
         console.log("deploycrab after active network");
         console.log(priceFeedAddresses[0]);
@@ -39,20 +39,12 @@ contract DeployCrab is Script {
 
         vm.startBroadcast(deployerKey);
         CrabStableCoin crab = new CrabStableCoin();
-
-        console.log("triple price feed??\n\n\n");
-        console.log(priceFeedAddresses[0]);
-        console.log(priceFeedAddresses[1]);
-        console.log(priceFeedAddresses[2]);
         CrabEngine crabEngine = new CrabEngine(
             address(crab),
             priceFeedAddresses[0],
-            priceFeedAddresses[1],
-            priceFeedAddresses[2], 
             tokenAddresses[0]
         );
 
-        console.log("deploycrab after start broadcast and new CrabEngine");
 
         crab.transferOwnership(address(crabEngine));
         vm.stopBroadcast();

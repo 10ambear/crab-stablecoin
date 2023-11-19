@@ -6,6 +6,8 @@ import "../src/CrabStableCoin.sol";
 import "forge-std/Test.sol";
 import {DeployCrab} from "../script/DeployCrab.s.sol";
 import { HelperConfig, ERC20Mock } from "../script/HelperConfig.s.sol";
+import "./mocks/MockV3Aggregator.sol";
+
 import "forge-std/console.sol";
 
 
@@ -25,21 +27,29 @@ contract CrabEngineTest is Test {
     function setUp() public {
         crabDeployer = new DeployCrab();
         (crabStableCoin, crabEngine, helperConfig) = crabDeployer.run();
-        (priceFeedAddresses[0], tokenAddresses[0],
-        priceFeedAddresses[1],
-        priceFeedAddresses[2],) = helperConfig.activeNetworkConfig();
+        (priceFeedAddresses[0], tokenAddresses[0],) = helperConfig.activeNetworkConfig();
 
-        console.log(priceFeedAddresses[0]);
         //ERC20Mock(weth)._mint(USER, USER_STARTING_BALANCE);
     }
 
-    function testGetPriceInUSDForTokens() view public {
-        console.log("we getting called??????????????????? ");
-        console.log("\n\n\nTEST PRICE FEED");
-        console.log(priceFeedAddresses[0]);
+    function testGetPriceInUSDForTokens() public {
+        //test get weth price
         uint256 price = crabEngine._getPriceInUSDForTokens(tokenAddresses[0], 10);
-        console.log("BITCH ASS PROBLEM I FUCKIONG GOT U ");
-        console.log("AND THE DUMASS PRICE IS ", price);
+        console.log(price);
+
+        //test get usdc price
+        (ERC20Mock coin, MockV3Aggregator feed) = helperConfig.createMock("USDC", 18, 1000e8);
+        crabEngine.addCoinAndFeed(address(coin), address(feed), 80, 6);
+        price = crabEngine._getPriceInUSDForTokens(address(coin), 10);
+        console.log(price);
+
+        //test get sol price
+        (ERC20Mock coin2, MockV3Aggregator feed2) = helperConfig.createMock("SOL", 18, 1000e8);
+        crabEngine.addCoinAndFeed(address(coin2), address(feed2), 50, 18);
+        price = crabEngine._getPriceInUSDForTokens(address(coin2), 10);
+        console.log(price);
+        //uint256 price = crabEngine._getPriceInUSDForTokens(tokenAddresses[0], 10);
+
         // uint256 ethAmount = 15; 
         // uint256 expectedUsd = 30_000e18;
         // uint256 actualUsd = crabEngine._getPriceInUSDForTokens(ethAmount, ethUsdPriceFeed);

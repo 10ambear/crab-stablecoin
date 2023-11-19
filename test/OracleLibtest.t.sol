@@ -43,16 +43,4 @@ contract OracleLibTest is StdCheats, Test {
         vm.expectRevert(OracleLib.OracleLib__StalePrice.selector);
         AggregatorV3Interface(address(aggregator)).staleCheckLatestRoundData();
     }
-
-    function testGetPrice() public {
-        MockV3Aggregator UsdcUsdPriceFeed = new MockV3Aggregator(
-            18,
-            1000e8
-        );
-
-        (, int256 price,,,) = AggregatorV3Interface(address(UsdcUsdPriceFeed)).staleCheckLatestRoundData();
-        //console.log(price);
-        assertEq(price, 1);
-        assertEq(price, 2);
-    }
 }
