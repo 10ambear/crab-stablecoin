@@ -15,6 +15,7 @@ interface IERC20 {
 /// https://book.getfoundry.sh/forge/writing-tests
 contract FooTest is PRBTest, StdCheats {
     Foo internal foo;
+    address user1;
 
     /// @dev A function invoked before each test case is run.
     function setUp() public virtual {

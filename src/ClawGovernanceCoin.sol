@@ -1,74 +1,95 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
 
-// Import OpenZeppelin's ERC20Votes contract
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20Burnable, ERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { IClawGovernanceCoin } from "./interfaces/IClawGovernanceCoin.sol";
 
-contract ClawGovernanceCoin is ERC20 {
+contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoin {
+    error ClawGovCoin__AmountMustBeMoreThanZero();
+    error ClawGovCoin__BurnAmountExceedsBalance();
+    error ClawGovCoin__NotZeroAddress();
 
-  // Define a struct for the proposal
-  struct Proposal {
-      address proposer;
-      uint256 ltv;
-      uint256 yesVotes;
-      uint256 noVotes;
-      bool active;
-      uint256 endTime;
-  }
+    // Define a struct for the proposal
+    struct Proposal {
+        address proposer;
+        address token;
+        uint256 ltv;
+        uint256 yesVotes;
+        uint256 noVotes;
+        bool active;
+        uint256 endTime;
+    }
 
-  constructor() ERC20("Claw governance", "CLAW") { }
+    // Define a mapping to store the proposals
+    mapping(uint256 => Proposal) public proposals;
+    uint256 public proposalCount;
 
-  // Define a mapping to store the proposals
-  mapping(uint256 => Proposal) public proposals;
-  uint256 public proposalCount;
+    // Define a mapping to track if an address has already voted for a proposal
+    mapping(uint256 => mapping(address => bool)) public hasVoted;
 
-  // Define a mapping to track if an address has already voted for a proposal
-  mapping(uint256 => mapping(address => bool)) public hasVoted;
+    // Define a mapping to track the last address an address voted from
+    mapping(address => address) public lastVotedFrom;
 
-  // Define a mapping to track the last address an address voted from
-  mapping(address => address) public lastVotedFrom;
+    constructor() ERC20("Claw governance", "CLAW") Ownable(msg.sender) { }
 
-  // Implement the propose function
-  function propose(uint256 ltv) external {
-      require(balanceOf(msg.sender) > totalSupply() / 100, "Must hold more than 1% of the totalSupply");
+    function propose(address token, uint256 ltv) external returns (uint256 proposalId) {
+        require(balanceOf(msg.sender) > totalSupply() / 100, "Must hold more than 1% of the totalSupply");
 
-      uint256 proposalId = proposalCount++;
-      proposals[proposalId] = Proposal({
-          proposer: msg.sender,
-          ltv: ltv,
-          yesVotes: 0,
-          noVotes: 0,
-          active: true,
-          endTime: block.timestamp + 5 days
-      });
+        proposalId = proposalCount++;
+        proposals[proposalId] = Proposal({
+            proposer: msg.sender,
+            token: token,
+            ltv: ltv,
+            yesVotes: 0,
+            noVotes: 0,
+            active: true,
+            endTime: block.timestamp + 5 days
+        });
 
-      // Automatically vote for the proposal with the entire balance
-      vote(proposalId);
-  }
+        // Automatically vote for the proposal with the entire balance
+        vote(proposalId);
+    }
 
-  // Implement the vote function
-  function vote(uint256 proposalId) public {
-      Proposal storage proposal = proposals[proposalId];
-      require(proposal.active, "Proposal must be active");
-      require(block.timestamp < proposal.endTime, "Proposal voting period has ended");
+    function vote(uint256 proposalId) public {
+        Proposal storage proposal = proposals[proposalId];
+        require(proposal.active, "Proposal must be active");
 
-      // Check if the voter has already voted for the proposal
-      require(!hasVoted[proposalId][msg.sender], "Address already voted for this proposal");
+        uint256 voterBalance = balanceOf(msg.sender);
+        require(voterBalance > 0, "No governance tokens to vote with");
 
-      // Check if the voter has transferred their tokens since they last voted
-      require(lastVotedFrom[msg.sender] == msg.sender, "Address has transferred tokens since they last voted");
+        proposal.yesVotes += voterBalance;
+        _transfer(msg.sender, address(this), voterBalance);
+    }
 
-      // Define the condition for a yes vote
-      bool isYesVote = balanceOf(msg.sender) > totalSupply() / 2;
+    function burn(uint256 _amount) public override onlyOwner {
+        uint256 balance = balanceOf(msg.sender);
+        if (_amount <= 0) {
+            revert ClawGovCoin__AmountMustBeMoreThanZero();
+        }
+        if (balance < _amount) {
+            revert ClawGovCoin__BurnAmountExceedsBalance();
+        }
+        super.burn(_amount);
+    }
 
-      // Increase the vote count
-      if (isYesVote) {
-          proposal.yesVotes += balanceOf(msg.sender);
-      } else {
-          proposal.noVotes += balanceOf(msg.sender);
-      }
+    function mint(address _to, uint256 _amount) external onlyOwner returns (bool) {
+        if (_to == address(0)) {
+            revert ClawGovCoin__NotZeroAddress();
+        }
+        if (_amount <= 0) {
+            revert ClawGovCoin__AmountMustBeMoreThanZero();
+        }
+        _mint(_to, _amount);
+        return true;
+    }
 
-      // Mark the address as having voted for the proposal
-      hasVoted[proposalId][msg.sender] = true;
-  }
+    function getProposal(uint256 proposalId)
+        public
+        view
+        returns (address proposer, uint256 ltv, uint256 yesVotes, uint256 noVotes, bool active, uint256 endTime)
+    {
+        Proposal memory proposal = proposals[proposalId];
+        return (proposal.proposer, proposal.ltv, proposal.yesVotes, proposal.noVotes, proposal.active, proposal.endTime);
+    }
 }
