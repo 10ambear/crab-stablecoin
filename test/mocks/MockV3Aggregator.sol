@@ -10,6 +10,7 @@ pragma solidity ^0.8.0;
  * its answer is unimportant
  */
 contract MockV3Aggregator {
+    uint256 private _price;
     uint256 public constant version = 0;
 
     uint8 public decimals;
@@ -43,6 +44,10 @@ contract MockV3Aggregator {
         getTimestamp[latestRound] = _timestamp;
         getStartedAt[latestRound] = _startedAt;
     }
+
+    function setPrice(uint256 price) public {
+       _price = price;
+   }
 
     function getRoundData(uint80 _roundId)
         external
