@@ -134,8 +134,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         address crabAddress
     ) {
         if (
-            tokenAddresses.length != priceFeedAddresses.length && tokenAddresses.length != tvlRatios.length
-                && tokenAddresses.length != priceFeedDecimals.length
+            tokenAddresses.length != priceFeedAddresses.length || tokenAddresses.length != tvlRatios.length
+                || tokenAddresses.length != priceFeedDecimals.length
         ) {
             revert CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }

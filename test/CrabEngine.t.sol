@@ -17,21 +17,38 @@ contract CrabEngineTest is Test {
     HelperConfig helperConfig;
     address wethUsdPriceFeed;
     address weth;
+    address usdcUsdPriceFeed;
+    address usdc;
 
+    uint256 amountCollateral = 10 ether;
+    address public user = address(1);
+    uint256 public constant STARTING_USER_BALANCE = 10 ether;
 
     function setUp() public {
         crabDeployer = new DeployCrab();
         (crabStableCoin, crabEngine, helperConfig) = crabDeployer.run();
         (wethUsdPriceFeed, weth, , , , , ) = helperConfig.activeNetworkConfig();
+        vm.deal(user, STARTING_USER_BALANCE);
     }
 
-    // original function
-    // function _getPriceInUSDForTokens(address token, uint256 tokenAmount) public view returns (uint256) {
-    //     AggregatorV3Interface priceFeed = AggregatorV3Interface(s_collateralTokenData[token].priceFeedAddress);
-    //     (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
-    //     //TEST IDEA fuzz this line here
-    //     return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
-    // }
+    ///////////////////////
+    // Constructor Tests //
+    ///////////////////////
+    address[] public tokenAddresses;
+    address[] public feedAddresses;
+    uint8[] priceFeedDecimals;
+    uint8[] tvlRatios;
+
+    function testRevertsIfTokenLengthDoesntMatchPriceFeeds() public {
+        tokenAddresses.push(weth);
+        feedAddresses.push(wethUsdPriceFeed);
+        feedAddresses.push(usdcUsdPriceFeed);
+        priceFeedDecimals.push(8);
+        tvlRatios.push(50);
+
+        vm.expectRevert(CrabEngine.CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch.selector);
+        new CrabEngine(tokenAddresses, feedAddresses, priceFeedDecimals,tvlRatios, address(crabEngine));
+    }
 
     function testGetUsdValue() public {
         uint256 ethAmount = 15e18;
@@ -40,6 +57,11 @@ contract CrabEngineTest is Test {
         uint256 actualUSDValue = crabEngine.getPriceInUSDForTokens(weth, ethAmount);
         assertEq(expectedUSDValue, actualUSDValue);
     }
+
+    function testDepositCollateral() public {
+
+    }
+
 
     // function testRevertsIfCollateralZero() public {
     // }
