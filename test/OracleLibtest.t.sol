@@ -24,7 +24,6 @@ contract OracleLibTest is StdCheats, Test {
         assertEq(OracleLib.getTimeout(AggregatorV3Interface(address(aggregator))), expectedTimeout);
     }
 
-    // Foundry Bug - I have to make staleCheckLatestRoundData public
     function testPriceRevertsOnStaleCheck() public {
         vm.warp(block.timestamp + 4 hours + 1 seconds);
         vm.roll(block.number + 1);

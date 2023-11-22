@@ -109,7 +109,7 @@ contract CrabEngineTest is Test {
     ///////////////////////////////////////
     // withdrawCollateral Tests //
     ///////////////////////////////////////
-
+    // i.e if the user hasn't borrowed anything
     function testWithdrawCollateralWithNoBorrowedAmount() public {
         // Mint some tokens for the user
         MockERC20(weth).mint(user, amountOfWethCollateral);
@@ -118,11 +118,11 @@ contract CrabEngineTest is Test {
         vm.startPrank(user);
         MockERC20(weth).approve(address(crabEngine), amountOfWethCollateral);
 
-        // Call the depositCollateral function
+        // transfer the user's tokens to the crabengine
         crabEngine.depositCollateral(weth, amountOfWethCollateral);
         vm.stopPrank();
 
-        // Check if the user's collateral deposited was updated correctly
+        // Check if the deposit was successful
         uint256 userCollateralDeposited = crabEngine.s_collateralDeposited(user, weth);
         assertEq(userCollateralDeposited, amountOfWethCollateral);
         console.log(userCollateralDeposited/1e18);
@@ -133,8 +133,48 @@ contract CrabEngineTest is Test {
         crabEngine.withdrawCollateral(weth, withdrawAmount);
         vm.stopPrank();
 
+        // check if the collateral has been removed from the crab engine
         uint256 collateralAfterWithdrawal = crabEngine.s_collateralDeposited(user, weth);
         assertEq(collateralAfterWithdrawal, amountOfWethCollateral-withdrawAmount);
     }
+
+    // i.e. if the user has borrowed something
+    function testWithdrawCollateralWithBorrowedAmount() public {
+        
+        // Mint some tokens for the user
+        MockERC20(weth).mint(user, amountOfWethCollateral);
+
+        // Approve the CrabEngine contract to spend the user's tokens
+        vm.startPrank(user);
+        MockERC20(weth).approve(address(crabEngine), amountOfWethCollateral);
+
+        // transfer the user's tokens to the crabengine
+        crabEngine.depositCollateral(weth, amountOfWethCollateral);
+        vm.stopPrank();
+
+        // Check if the deposit was successful
+        uint256 userCollateralDeposited = crabEngine.s_collateralDeposited(user, weth);
+        assertEq(userCollateralDeposited, amountOfWethCollateral);
+        console.log(userCollateralDeposited/1e18);
+
+        // at this point the user has collateral, now they need to borrow
+        // vm.startPrank(user);
+        // crabEngine.borrow(amount);
+        // vm.stopPrank();
+
+
+
+        // user withdraws the collateral
+        // vm.startPrank(user);
+        // uint256 withdrawAmount = 5e18;
+        // crabEngine.withdrawCollateral(weth, withdrawAmount);
+        // vm.stopPrank();
+
+
+        // check if the collateral has been removed from the crab engine
+        //uint256 collateralAfterWithdrawal = crabEngine.s_collateralDeposited(user, weth);
+        //assertEq(collateralAfterWithdrawal, amountOfWethCollateral-withdrawAmount);
+    }
+
 
 }

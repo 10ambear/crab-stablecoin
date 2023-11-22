@@ -57,7 +57,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         uint256 borrowAmount1;
         uint256 borrowAmount2;
         bool hasBorrowedTwice;
-        bool mustRepay;
     }
 
     ///////////////////
@@ -197,15 +196,10 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         isAllowedToken(collateralTokenAddress)
         nonReentrant
     {
-        require(
-            s_userBorrows[msg.sender].mustRepay == false, "User cannot withdraw collateral before repaying owed debt."
-        );
 
         // total amount borrowed
         uint256 amountOfCrabBorrowed = s_userBorrows[msg.sender].borrowAmount1 + s_userBorrows[msg.sender].borrowAmount2;
-        console.log("test1");
         if (amountOfCrabBorrowed > 0) {
-            console.log("test2");
             CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
             uint256 totalCollateralForUser = s_collateralDeposited[msg.sender][collateralTokenAddress];
 
@@ -241,7 +235,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
                 revert("Withdrawal would violate LTV ratio");
             }
         }
-        console.log("test3");
         s_collateralDeposited[msg.sender][collateralTokenAddress] -= amount;
 
         IERC20(collateralTokenAddress).safeTransfer(msg.sender, amount);
@@ -268,7 +261,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             s_protocolDebtInCrab += amount;
             s_userBorrows[msg.sender].borrowDate1 == block.timestamp;
             s_userBorrows[msg.sender].borrowAmount1 == amount;
-            s_userBorrows[msg.sender].mustRepay == true;
 
             _mintCrab(amount);
             emit CrabTokenBorrowed(msg.sender, amount);
