@@ -6,16 +6,7 @@ import { HelperConfig } from "./HelperConfig.s.sol";
 import { CrabStableCoin } from "../src/CrabStableCoin.sol";
 import { CrabEngine } from "../src/CrabEngine.sol";
 
-import "forge-std/console.sol";
-
 contract DeployCrab is Script {
-    //     constructor(
-    //     address[] memory tokenAddresses,
-    //     address[] memory priceFeedAddresses,
-    //     uint16[] memory priceFeedDecimals,
-    //     uint16[] memory tvlRatios,
-    //     address crabAddress
-    // ) {
 
     address[] tokenAddresses;
     address[] priceFeedAddresses;

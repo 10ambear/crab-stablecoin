@@ -27,7 +27,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // Errors
     ///////////////////
-    // todo make sure we delete the ones we don't use
     error CrabEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
     error CrabEngine__NeedsMoreThanZero();
     error CrabEngine__TokenNotAllowed(address token);
@@ -40,15 +39,17 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     using OracleLib for AggregatorV3Interface;
     using SafeERC20 for IERC20;
 
+    /// the stablecoin interface
     CrabStableCoin private immutable i_crabStableCoin;
 
+    /// @dev struct that holds collateral token metadata
     struct CollateralToken {
         address priceFeedAddress;
         uint8 ltvRatio;
         uint8 decimals;
     }
 
-    // @dev struct that holds borrow information for the user
+    /// @dev struct that holds borrow information for the user
     struct UserBorrows {
         uint256 borrowDate1;
         uint256 borrowDate2;
@@ -86,13 +87,13 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     /// @dev the total debt of the protocol
     uint256 private s_protocolDebtInCrab;
 
-    // @dev fee variables
+    /// @dev fee variables
     uint256 private constant INTEREST_PER_SHARE_PER_SECOND = 3_170_979_198; // positionSize/10 = positionSize *
         // seconds_per_year * interestPerSharePerSec
     // @todo should we calculate fees for the entire protocol?
     uint256 private aggregateInterestFees;
 
-    // @dev vars related to precision during oracle use
+    /// @dev vars related to precision during oracle use
     uint256 private constant PRECISION = 1e18;
     uint256 private constant EQUALIZER_PRECISION = 1e10;
 
@@ -100,7 +101,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     // Events
     ///////////////////
     event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
-    // if redeemFrom != redeemedTo, then it was liquidated
+    /// @dev if redeemFrom != redeemedTo, then it was liquidated
     event CollateralRedeemed(address indexed redeemFrom, address indexed redeemTo, address token, uint256 amount);
     event CrabTokenBorrowed(address indexed to, uint256 indexed amount);
     event BorrowedAmountRepaid(address indexed from, uint256 indexed amount);
@@ -108,7 +109,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // Modifiers
     ///////////////////
-
     modifier moreThanZero(uint256 amount) {
         if (amount == 0) {
             revert CrabEngine__NeedsMoreThanZero();
@@ -126,28 +126,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     ///////////////////
     // constructor
     ///////////////////
-
-    // the constructor is potentially dangerous
-    //0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = 70; // Wrapped Ether
-    //0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48] = 80; // USDC
-    //0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9] = 50; // Solana
-
-    // can always make these updatable
-    //address public constant WETH_ADDRESS = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    //address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    //address public constant SOLANA_ADDRESS = 0xD31a59c85aE9D8edEFeC411D448f90841571b89c;
-
-    // constructor(address crabAddress, address wethPriceFeed, address weth) {
-    //     s_collateralTokenData[weth] = CollateralToken(wethPriceFeed, 70, 18);
-
-    //     //s_collateralTokenData[USDC_ADDRESS] = CollateralToken(usdcPriceFeed, 80, 6);
-
-    //     //s_collateralTokenData[SOLANA_ADDRESS] = CollateralToken(solanaPriceFeed, 50, 18);
-
-    //     i_crabStableCoin = CrabStableCoin(crabAddress);
-    // }
-
-    // leaving this for now
     constructor(
         address[] memory tokenAddresses,
         address[] memory priceFeedAddresses,
