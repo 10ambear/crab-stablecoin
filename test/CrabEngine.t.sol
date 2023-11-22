@@ -107,6 +107,10 @@ contract CrabEngineTest is Test {
     }
 
     ///////////////////////////////////////
+    // borrow Tests //
+    ///////////////////////////////////////
+
+    ///////////////////////////////////////
     // withdrawCollateral Tests //
     ///////////////////////////////////////
     // i.e if the user hasn't borrowed anything
@@ -140,7 +144,7 @@ contract CrabEngineTest is Test {
 
     // i.e. if the user has borrowed something
     function testWithdrawCollateralWithBorrowedAmount() public {
-        
+        uint256 amountOfCrabTheUserWantsToBorrow = 15e18;
         // Mint some tokens for the user
         MockERC20(weth).mint(user, amountOfWethCollateral);
 
@@ -157,24 +161,32 @@ contract CrabEngineTest is Test {
         assertEq(userCollateralDeposited, amountOfWethCollateral);
         console.log(userCollateralDeposited/1e18);
 
-        // at this point the user has collateral, now they need to borrow
-        // vm.startPrank(user);
-        // crabEngine.borrow(amount);
-        // vm.stopPrank();
+        // at this point the user has collateral, now they need to borrow some crab
+        // todo this doesn't work properly, it seems that the s_userBorrows[msg.sender].borrowAmount1 
+        // doesn't update properly
+        vm.startPrank(user);
+        crabEngine.borrow(amountOfCrabTheUserWantsToBorrow);
+        vm.stopPrank();
 
-
-
-        // user withdraws the collateral
-        // vm.startPrank(user);
-        // uint256 withdrawAmount = 5e18;
-        // crabEngine.withdrawCollateral(weth, withdrawAmount);
-        // vm.stopPrank();
-
+        // now the user has their crab
+        uint256 userCrabBalance = crabEngine.s_userCrabBalance(user);
+        assertEq(userCrabBalance, amountOfCrabTheUserWantsToBorrow);
+        
+        // user withdraws the collateral 
+        vm.startPrank(user);
+        uint256 withdrawAmount = 5e18;
+        crabEngine.withdrawCollateral(weth, withdrawAmount);
+        vm.stopPrank();
 
         // check if the collateral has been removed from the crab engine
-        //uint256 collateralAfterWithdrawal = crabEngine.s_collateralDeposited(user, weth);
-        //assertEq(collateralAfterWithdrawal, amountOfWethCollateral-withdrawAmount);
+        uint256 collateralAfterWithdrawal = crabEngine.s_collateralDeposited(user, weth);
+        assertEq(collateralAfterWithdrawal, amountOfWethCollateral-withdrawAmount);
     }
 
+    ///////////////////////////////////////
+    // repay Tests //
+    ///////////////////////////////////////
+
+    
 
 }

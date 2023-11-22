@@ -72,7 +72,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     mapping(address user => mapping(address collateralToken => uint256 amount)) public s_collateralDeposited;
 
     /// @dev users crab balance
-    mapping(address user => uint256 amount) private s_userCrabBalance;
+    mapping(address user => uint256 amount) public s_userCrabBalance;
 
     /// @dev collateral token address to ltv ratio allowed in percentage
     mapping(address => uint256) private s_collateralTokenAndRatio;
