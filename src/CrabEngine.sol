@@ -7,7 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CrabStableCoin } from "./CrabStableCoin.sol";
 import { ICrabEngine } from "./interfaces/ICrabEngine.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {console} from "forge-std/Test.sol";
+import { console } from "forge-std/Test.sol";
 
 import "forge-std/console.sol";
 
@@ -46,8 +46,8 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     /// @dev struct that holds collateral token metadata
     struct CollateralToken {
         address priceFeedAddress;
-        uint8 ltvRatio;
         uint8 decimals;
+        uint8 ltvRatio;
     }
 
     /// @dev struct that holds borrow information for the user
@@ -75,7 +75,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     mapping(address => uint256) private s_collateralTokenAndRatio;
 
     // @dev mapping to hold user borrow info for each user
-    mapping(address => UserBorrows) private s_userBorrows;
+    mapping(address => UserBorrows) public s_userBorrows;
 
     /// @dev the types of collateral tokens crab supports
     /// we're expecting weth, usdc, and solana atm
@@ -193,47 +193,20 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         isAllowedToken(collateralTokenAddress)
         nonReentrant
     {
-
-        // total amount borrowed
-        uint256 amountOfCrabBorrowed = s_userBorrows[msg.sender].borrowAmount1 + s_userBorrows[msg.sender].borrowAmount2;
+        uint256 amountOfCrabBorrowed = getUserCrabBalance(msg.sender);
         if (amountOfCrabBorrowed > 0) {
             CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
-            uint256 totalCollateralForUser = s_collateralDeposited[msg.sender][collateralTokenAddress];
-
-            uint8 decimalsForToken = tokenData.decimals;
-            //here decimals token is 70 for some reason
-            // Convert the token amount to a fixed-point number
-            uint256 amountInFixedPoint = amount * 10 ** decimalsForToken;
-
-            // Convert the total collateral for user to a fixed-point number
-            uint256 totalCollateralForUserInFixedPoint = totalCollateralForUser * 10 ** decimalsForToken;
-
-            // Perform the calculation using the fixed-point numbers
-            uint256 remainingCollateralValueAfterWithdrawalInFixedPoint = (
-                totalCollateralForUserInFixedPoint - amountInFixedPoint
+            // todo definitely precision errors
+            uint256 remainingCollateralValueAfterWithdrawal = (
+                s_collateralDeposited[msg.sender][collateralTokenAddress] - amount
             ) * getPriceInUSDForTokens(collateralTokenAddress, 1);
-
-            // Convert the result back to a regular number
-            uint256 remainingCollateralValueAfterWithdrawal =
-                remainingCollateralValueAfterWithdrawalInFixedPoint / 10 ** decimalsForToken;
-
-            // Convert the token amount to a fixed-point number
-            uint256 amountOfCrabBorrowedInFixedPoint = amountOfCrabBorrowed * 10 ** decimalsForToken;
-
-            // Perform the calculation using the fixed-point numbers
-            uint256 collateralValueRequiredToKeepltvInFixedPoint = (
-                remainingCollateralValueAfterWithdrawalInFixedPoint - amountOfCrabBorrowedInFixedPoint
-            ) * tokenData.ltvRatio;
-
-            // Convert the result back to a regular number
-            uint256 collateralValueRequiredToKeepltv = collateralValueRequiredToKeepltvInFixedPoint / 100;
-
+            uint256 collateralValueRequiredToKeepltv =
+                (remainingCollateralValueAfterWithdrawal - amountOfCrabBorrowed) * tokenData.ltvRatio / 100;
             if (collateralValueRequiredToKeepltv > remainingCollateralValueAfterWithdrawal) {
                 revert("Withdrawal would violate LTV ratio");
             }
         }
         s_collateralDeposited[msg.sender][collateralTokenAddress] -= amount;
-
         IERC20(collateralTokenAddress).safeTransfer(msg.sender, amount);
         emit CollateralRedeemed(msg.sender, msg.sender, collateralTokenAddress, amount);
     }
@@ -336,7 +309,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             address token = s_typesOfCollateralTokens[i];
             uint256 tokenAmount = s_collateralDeposited[msg.sender][token];
             uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
-            
+
             amount += fullPrice / s_collateralTokenAndRatio[token];
         }
     }
@@ -380,5 +353,14 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
         //TEST IDEA fuzz this line here
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
+    }
+    /**
+     * @dev gets the current crab balance of the user
+     *
+     * @param user address of the users
+     */
+
+    function getUserCrabBalance(address user) public view returns (uint256) {
+        return s_userBorrows[user].borrowAmount1 + s_userBorrows[user].borrowAmount2;
     }
 }
