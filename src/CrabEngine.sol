@@ -7,6 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CrabStableCoin } from "./CrabStableCoin.sol";
 import { ICrabEngine } from "./interfaces/ICrabEngine.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {console} from "forge-std/Test.sol";
 
 import "forge-std/console.sol";
 
@@ -199,23 +200,48 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         require(
             s_userBorrows[msg.sender].mustRepay == false, "User cannot withdraw collateral before repaying owed debt."
         );
+
+        // total amount borrowed
         uint256 amountOfCrabBorrowed = s_userBorrows[msg.sender].borrowAmount1 + s_userBorrows[msg.sender].borrowAmount2;
-
+        console.log("test1");
         if (amountOfCrabBorrowed > 0) {
+            console.log("test2");
             CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
+            uint256 totalCollateralForUser = s_collateralDeposited[msg.sender][collateralTokenAddress];
 
-            // todo definitely precision errors
-            uint256 remainingCollateralValueAfterWithdrawal = (
-                s_collateralDeposited[msg.sender][collateralTokenAddress] - amount
+            uint8 decimalsForToken = tokenData.decimals;
+
+            // Convert the token amount to a fixed-point number
+            uint256 amountInFixedPoint = amount * 10 ** decimalsForToken;
+
+            // Convert the total collateral for user to a fixed-point number
+            uint256 totalCollateralForUserInFixedPoint = totalCollateralForUser * 10 ** decimalsForToken;
+
+            // Perform the calculation using the fixed-point numbers
+            uint256 remainingCollateralValueAfterWithdrawalInFixedPoint = (
+                totalCollateralForUserInFixedPoint - amountInFixedPoint
             ) * getPriceInUSDForTokens(collateralTokenAddress, 1);
 
-            uint256 collateralValueRequiredToKeepltv =
-                (remainingCollateralValueAfterWithdrawal - amountOfCrabBorrowed) * tokenData.ltvRatio / 100;
+            // Convert the result back to a regular number
+            uint256 remainingCollateralValueAfterWithdrawal =
+                remainingCollateralValueAfterWithdrawalInFixedPoint / 10 ** decimalsForToken;
+
+            // Convert the token amount to a fixed-point number
+            uint256 amountOfCrabBorrowedInFixedPoint = amountOfCrabBorrowed * 10 ** decimalsForToken;
+
+            // Perform the calculation using the fixed-point numbers
+            uint256 collateralValueRequiredToKeepltvInFixedPoint = (
+                remainingCollateralValueAfterWithdrawalInFixedPoint - amountOfCrabBorrowedInFixedPoint
+            ) * tokenData.ltvRatio;
+
+            // Convert the result back to a regular number
+            uint256 collateralValueRequiredToKeepltv = collateralValueRequiredToKeepltvInFixedPoint / 100;
+
             if (collateralValueRequiredToKeepltv > remainingCollateralValueAfterWithdrawal) {
                 revert("Withdrawal would violate LTV ratio");
             }
         }
-
+        console.log("test3");
         s_collateralDeposited[msg.sender][collateralTokenAddress] -= amount;
 
         IERC20(collateralTokenAddress).safeTransfer(msg.sender, amount);

@@ -20,7 +20,7 @@ contract CrabEngineTest is Test {
     address usdcUsdPriceFeed;
     address usdc;
 
-    uint256 amountCollateral = 10 ether;
+    uint256 amountOfWethCollateral = 10 ether;
     address public user = address(1);
     uint256 public constant STARTING_USER_BALANCE = 10 ether;
 
@@ -69,30 +69,29 @@ contract CrabEngineTest is Test {
 
     function testDepositCollateral() public {
         // Mint some tokens for the user
-        MockERC20(weth).mint(user, amountCollateral);
+        MockERC20(weth).mint(user, amountOfWethCollateral);
 
         // Approve the CrabEngine contract to spend the user's tokens
         vm.startPrank(user);
-        MockERC20(weth).approve(address(crabEngine), amountCollateral);
+        MockERC20(weth).approve(address(crabEngine), amountOfWethCollateral);
 
         // Call the depositCollateral function
-        crabEngine.depositCollateral(weth, amountCollateral);
+        crabEngine.depositCollateral(weth, amountOfWethCollateral);
         vm.stopPrank();
 
         // Check if the user's collateral deposited was updated correctly
         uint256 userCollateralDeposited = crabEngine.s_collateralDeposited(user, weth);
-        console.log(userCollateralDeposited);
-        assertEq(userCollateralDeposited, amountCollateral);
+        assertEq(userCollateralDeposited, amountOfWethCollateral);
 
         // Check if the tokens were transferred from the user to the contract
         uint256 contractBalance = MockERC20(weth).balanceOf(address(crabEngine));
-        assertEq(contractBalance, amountCollateral);
+        assertEq(contractBalance, amountOfWethCollateral);
     }
 
 
-    function testRevertsIfCollateralZero() public {
+    function testRevertsIfDepositCollateralZero() public {
         vm.startPrank(user);
-        MockERC20(weth).approve(address(crabEngine), amountCollateral);
+        MockERC20(weth).approve(address(crabEngine), amountOfWethCollateral);
 
         vm.expectRevert(CrabEngine.CrabEngine__NeedsMoreThanZero.selector);
         crabEngine.depositCollateral(weth, 0);
@@ -103,8 +102,39 @@ contract CrabEngineTest is Test {
         MockERC20 randomToken = new MockERC20("RANDOM", "RANDOM");
         vm.startPrank(user);
         vm.expectRevert(abi.encodeWithSelector(CrabEngine.CrabEngine__TokenNotAllowed.selector, address(randomToken)));
-        crabEngine.depositCollateral(address(randomToken), amountCollateral);
+        crabEngine.depositCollateral(address(randomToken), amountOfWethCollateral);
         vm.stopPrank();
+    }
+
+    ///////////////////////////////////////
+    // withdrawCollateral Tests //
+    ///////////////////////////////////////
+
+    function testWithdrawCollateralWithNoBorrowedAmount() public {
+        // Mint some tokens for the user
+        MockERC20(weth).mint(user, amountOfWethCollateral);
+
+        // Approve the CrabEngine contract to spend the user's tokens
+        vm.startPrank(user);
+        MockERC20(weth).approve(address(crabEngine), amountOfWethCollateral);
+
+        // Call the depositCollateral function
+        crabEngine.depositCollateral(weth, amountOfWethCollateral);
+        vm.stopPrank();
+
+        // Check if the user's collateral deposited was updated correctly
+        uint256 userCollateralDeposited = crabEngine.s_collateralDeposited(user, weth);
+        assertEq(userCollateralDeposited, amountOfWethCollateral);
+        console.log(userCollateralDeposited/1e18);
+
+        // user withdraws the collateral
+        vm.startPrank(user);
+        uint256 withdrawAmount = 10e18;
+        crabEngine.withdrawCollateral(weth, withdrawAmount);
+        vm.stopPrank();
+
+        uint256 collateralAfterWithdrawal = crabEngine.s_collateralDeposited(user, weth);
+        assertEq(collateralAfterWithdrawal, amountOfWethCollateral-withdrawAmount);
     }
 
 }
