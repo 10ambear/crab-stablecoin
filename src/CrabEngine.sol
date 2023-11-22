@@ -71,9 +71,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     /// @dev Amount of collateral deposited by user
     mapping(address user => mapping(address collateralToken => uint256 amount)) public s_collateralDeposited;
 
-    /// @dev users crab balance
-    mapping(address user => uint256 amount) public s_userCrabBalance;
-
     /// @dev collateral token address to ltv ratio allowed in percentage
     mapping(address => uint256) private s_collateralTokenAndRatio;
 
@@ -204,7 +201,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             uint256 totalCollateralForUser = s_collateralDeposited[msg.sender][collateralTokenAddress];
 
             uint8 decimalsForToken = tokenData.decimals;
-
+            //here decimals token is 70 for some reason
             // Convert the token amount to a fixed-point number
             uint256 amountInFixedPoint = amount * 10 ** decimalsForToken;
 
@@ -259,10 +256,13 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
 
             // increase protocol debt and save user borrow information
             s_protocolDebtInCrab += amount;
-            s_userBorrows[msg.sender].borrowDate1 == block.timestamp;
-            s_userBorrows[msg.sender].borrowAmount1 == amount;
+            s_userBorrows[msg.sender].borrowDate1 = block.timestamp;
+            s_userBorrows[msg.sender].borrowAmount1 = amount;
 
-            _mintCrab(amount);
+            bool minted = i_crabStableCoin.mint(msg.sender, amount);
+            if (minted != true) {
+                revert CrabEngine__MintFailed();
+            }
             emit CrabTokenBorrowed(msg.sender, amount);
         } /* if (s_userBorrows[msg.sender].borrowDate2 == 0) */ else {
             // get the amount borrowed by the user
@@ -271,13 +271,16 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
 
             // increase protocol debt and save user borrow information
             s_protocolDebtInCrab += amount;
-            s_userBorrows[msg.sender].borrowDate2 == block.timestamp;
-            s_userBorrows[msg.sender].borrowAmount2 == amount;
+            s_userBorrows[msg.sender].borrowDate2 = block.timestamp;
+            s_userBorrows[msg.sender].borrowAmount2 = amount;
 
             // user has borrowed twice
-            s_userBorrows[msg.sender].hasBorrowedTwice == true;
+            s_userBorrows[msg.sender].hasBorrowedTwice = true;
 
-            _mintCrab(amount);
+            bool minted = i_crabStableCoin.mint(msg.sender, amount);
+            if (minted != true) {
+                revert CrabEngine__MintFailed();
+            }
             emit CrabTokenBorrowed(msg.sender, amount);
         }
     }
@@ -302,7 +305,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             revert("User must payback the EXACT amount owed.");
         }
         // update borrowed balance and reset user
-        s_protocolDebtInCrab -= amount;
+        s_protocolDebtInCrab -= amountOfCrabBorrowed;
         delete s_userBorrows[msg.sender];
 
         // transfers the crab to the engine
@@ -311,7 +314,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             revert CrabEngine__TransferFailed();
         }
         // burn crabTokens
-        _burnCrab(amount, msg.sender);
+        i_crabStableCoin.burn(amount);
 
         emit BorrowedAmountRepaid(msg.sender, amount);
     }
@@ -333,7 +336,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
             address token = s_typesOfCollateralTokens[i];
             uint256 tokenAmount = s_collateralDeposited[msg.sender][token];
             uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
-            // TODO: Problems that can arise from precision?
+            
             amount += fullPrice / s_collateralTokenAndRatio[token];
         }
     }
@@ -367,30 +370,6 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     }
 
     /**
-     * @dev Automatically mints crab when the user borrows crab from the engine.
-     *
-     * @param amountCrabToMint the amount of crab to mint.
-     */
-    function _mintCrab(uint256 amountCrabToMint) private moreThanZero(amountCrabToMint) {
-        s_userCrabBalance[msg.sender] += amountCrabToMint;
-        bool minted = i_crabStableCoin.mint(msg.sender, amountCrabToMint);
-        if (minted != true) {
-            revert CrabEngine__MintFailed();
-        }
-    }
-
-    /**
-     * @dev Automatically burns crab when the user repays their loan.
-     *
-     * @param amountCrabToBurn the amount of crab to burn.
-     * @param user the address where the crab is getting burnt.
-     */
-    function _burnCrab(uint256 amountCrabToBurn, address user) private moreThanZero(amountCrabToBurn) {
-        s_userCrabBalance[user] -= amountCrabToBurn;
-        i_crabStableCoin.burn(amountCrabToBurn);
-    }
-
-    /**
      * @dev gets the usd price for the tokens the protocol
      *
      * @param token the supported token
@@ -401,14 +380,5 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
         //TEST IDEA fuzz this line here
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    // External & Public View & Pure Functions
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    function getCrabTokenForUser(address user) external view returns (uint256) {
-        return s_userCrabBalance[user];
     }
 }
