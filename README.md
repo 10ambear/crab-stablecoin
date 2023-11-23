@@ -1,7 +1,3 @@
-# official readme
-
-# How does the system work? How would a user interact with it?
-
 # CrabStableCoin
 The system is a decentralized stablecoin system called Crab. It is designed to maintain a 1 token == $1 peg at all times. The system allows users to deposit collateral, borrow stablecoins, and repay borrowed stablecoins. The system is based on the MakerDAO DSS system.
 
