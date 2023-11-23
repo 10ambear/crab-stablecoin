@@ -301,7 +301,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
     }
 
     /**
-     * @dev fuck knows @todo
+     * @dev Gets the total borrowable amount for the caller.
      *
      */
     function getTotalBorrowableAmount() public view returns (uint256 amount) {

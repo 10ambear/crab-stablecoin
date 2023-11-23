@@ -55,7 +55,7 @@ There is no keeper involved in the system. The term "keeper" is often used in th
 ## What are the known risks/issues?
 The main risk in this system is the potential for Sybil attacks. In a Sybil attack, a user creates multiple fake identities and uses them to control the majority of the votes. To mitigate this risk, the system requires that a user holds more than 1% of the total supply of tokens to propose a new proposal. This requirement prevents a user from controlling a majority of the votes through Sybil attacks.
 
-Another potential issue is that the system does not prevent a user from voting more than once on the same proposal. This could be a problem if the voting system is not designed to handle multiple votes from the same user. To mitigate this issue, the system checks that a user has not already voted on a proposal before recording the user's vote
+Another potential issue is that the system does not prevent a user from voting more than once on the same proposal. This could be a problem if the voting system is not designed to handle multiple votes from the same user. To mitigate this issue, the system checks that a user has not already voted on a proposal before recording the user's vote.
 
 ## Any pertinent formulas used.
 

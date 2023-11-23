@@ -32,6 +32,14 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
 
     constructor() ERC20("Claw governance", "CLAW") Ownable(msg.sender) { }
 
+    /**
+     * @dev propose a new proposal
+     *
+     * @notice The caller can only propose if they hold more than 1% of the total stablecoin in circulation.
+     *
+     * @param token The address of the token we're updating the LTV for
+     * @param ltv The new LTV proposed
+     */
     function propose(address token, uint256 ltv) external returns (uint256 proposalId) {
         uint256 totalTokenBalanceForSender = balanceOf(msg.sender);
         uint256 onePercentTotalSupplyOfToken = totalSupply() / 100;
@@ -53,6 +61,13 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
         vote(proposalId);
     }
 
+    /**
+     * @dev vote for a proposal
+     *
+     * @notice The caller cannot vote twice on the same proposal.
+     *
+     * @param proposalId The id of the proposal to vote for
+     */
     function vote(uint256 proposalId) public {
         Proposal storage proposal = proposals[proposalId];
 
@@ -71,6 +86,11 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
         hasVoted[proposalId][msg.sender] = true;
     }
 
+    /**
+     * @dev burn governance tokens
+     *
+     * @param _amount The amount of tokens to burn
+     */
     function burn(uint256 _amount) public override onlyOwner {
         uint256 balance = balanceOf(msg.sender);
         if (_amount <= 0) {
@@ -82,6 +102,12 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
         super.burn(_amount);
     }
 
+    /**
+     * @dev mint governance tokens
+     *
+     * @param _to The address to mint tokens to
+     * @param _amount The amount of tokens to mint
+     */
     function mint(address _to, uint256 _amount) external onlyOwner returns (bool) {
         if (_to == address(0)) {
             revert ClawGovCoin__NotZeroAddress();
@@ -93,6 +119,11 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
         return true;
     }
 
+    /**
+     * @dev get a proposal
+     *
+     * @param proposalId The id of the proposal to get
+     */
     function getProposal(uint256 proposalId)
         public
         view
