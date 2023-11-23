@@ -86,7 +86,7 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
 
     /// @dev fee variables
     uint256 private constant INTEREST_PER_SHARE_PER_SECOND = 3_170_979_198; // positionSize/10 = positionSize *
-        // seconds_per_year * interestPerSharePerSec
+    // seconds_per_year * interestPerSharePerSec
     // @todo should we calculate fees for the entire protocol?
     uint256 private aggregateInterestFees;
 
@@ -354,12 +354,12 @@ contract CrabEngine is ReentrancyGuard, ICrabEngine {
         //TEST IDEA fuzz this line here
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
     }
+
     /**
      * @dev gets the current crab balance of the user
      *
      * @param user address of the users
      */
-
     function getUserCrabBalance(address user) public view returns (uint256) {
         return s_userBorrows[user].borrowAmount1 + s_userBorrows[user].borrowAmount2;
     }

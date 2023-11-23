@@ -17,7 +17,6 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
         uint256 ltv;
         uint256 yesVotes;
         uint256 noVotes;
-        bool active;
         uint256 endTime;
     }
 
@@ -34,7 +33,11 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
     constructor() ERC20("Claw governance", "CLAW") Ownable(msg.sender) { }
 
     function propose(address token, uint256 ltv) external returns (uint256 proposalId) {
-        require(balanceOf(msg.sender) > totalSupply() / 100, "Must hold more than 1% of the totalSupply");
+        uint256 totalTokenBalanceForSender = balanceOf(msg.sender);
+        uint256 onePercentTotalSupplyOfToken = totalSupply() / 100;
+
+        // Check if the user has at least 1% of the total supply
+        require(totalTokenBalanceForSender > onePercentTotalSupplyOfToken, "Must hold more than 1% of the totalSupply");
 
         proposalId = proposalCount++;
         proposals[proposalId] = Proposal({
@@ -43,7 +46,6 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
             ltv: ltv,
             yesVotes: 0,
             noVotes: 0,
-            active: true,
             endTime: block.timestamp + 5 days
         });
 
@@ -53,13 +55,20 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
 
     function vote(uint256 proposalId) public {
         Proposal storage proposal = proposals[proposalId];
-        require(proposal.active, "Proposal must be active");
 
+        // Check if the proposal has ended
+        require(block.timestamp < proposal.endTime, "Proposal has ended");
+
+        // using balanceof to check the user's complete balance
         uint256 voterBalance = balanceOf(msg.sender);
         require(voterBalance > 0, "No governance tokens to vote with");
 
+        // Check if the user has already voted on this proposal
+        require(!hasVoted[proposalId][msg.sender], "User has already voted on this proposal");
+
+        // Record the user's vote and update the proposal's yes votes without actually transferring tokens
         proposal.yesVotes += voterBalance;
-        _transfer(msg.sender, address(this), voterBalance);
+        hasVoted[proposalId][msg.sender] = true;
     }
 
     function burn(uint256 _amount) public override onlyOwner {
@@ -87,9 +96,9 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IClawGovernanceCoi
     function getProposal(uint256 proposalId)
         public
         view
-        returns (address proposer, uint256 ltv, uint256 yesVotes, uint256 noVotes, bool active, uint256 endTime)
+        returns (address proposer, uint256 ltv, uint256 yesVotes, uint256 noVotes, uint256 endTime)
     {
         Proposal memory proposal = proposals[proposalId];
-        return (proposal.proposer, proposal.ltv, proposal.yesVotes, proposal.noVotes, proposal.active, proposal.endTime);
+        return (proposal.proposer, proposal.ltv, proposal.yesVotes, proposal.noVotes, proposal.endTime);
     }
 }
