@@ -5,7 +5,7 @@ import { OracleLib, AggregatorV3Interface } from "./libraries/OracleLib.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CrabStableCoin } from "./CrabStableCoin.sol";
-import { ICrabEngine } from "./interfaces/ICrabEngine.sol";
+import { ICDP } from "./interfaces/ICDP.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { console } from "forge-std/Test.sol";
 
@@ -24,7 +24,7 @@ import "forge-std/console.sol";
  * for minting and redeeming Crab, as well as depositing and withdrawing collateral.
  * @notice This contract is based on the MakerDAO DSS system
  */
-contract CrabEngine is ReentrancyGuard, ICrabEngine {
+contract CrabEngine is ReentrancyGuard, ICDP {
     ///////////////////
     // Errors
     ///////////////////

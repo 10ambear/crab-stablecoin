@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
 
-interface ICrabEngine {
+interface ICDP {
     /**
      * @dev Deposit the specified collateral into the caller's position.
      * Only supported collateralToken's are allowed.
