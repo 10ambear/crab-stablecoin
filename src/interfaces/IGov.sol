@@ -21,4 +21,12 @@ interface IGov {
      * @param proposalId the id corresponding to the proposal to vote for.
      */
     function vote(uint256 proposalId) external;
+
+    /**
+     * @dev Execute a proposal that has reached a majority of the governance vote.
+     * Requires that the voting period for the proposal has ended.
+     *
+     * @param proposalId the id corresponding to the proposal to vote for.
+     */
+    function execute(uint256 proposalId) external;
 }

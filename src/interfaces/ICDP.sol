@@ -34,4 +34,12 @@ interface ICDP {
      * @param amount the amount to repay.
      */
     function repay(uint256 amount) external;
+
+    /**
+     * @dev Liquidate a position that has breached the LTV ratio for it's basket of collateral.
+     *
+     * @param user the user who's position should be liquidated.
+     * @param liquidationCallback the liquidation callback contract to send collateral to.
+     */
+    //function liquidate(address user, ILiquidationCallback liquidationCallback) external;
 }
