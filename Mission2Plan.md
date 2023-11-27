@@ -16,7 +16,13 @@ Governance proposals may be executed:
 - Interest fees that are generated from the CDP protocol debt are distributed to stakers.
 ### [Task 1] - Notes
 
+Tue - 
+Wed - 
+Thur - 
+Fri - 
+
 ### [Task 2] - Notes
+
 
 ## Meetings
 
