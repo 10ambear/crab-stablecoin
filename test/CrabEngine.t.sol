@@ -200,10 +200,11 @@ contract CrabEngineTest is Test {
         crabEngine.borrow(borrowAmount);
         assertEq(crabStableCoin.balanceOf(user), 2 * borrowAmount);
 
-        // attempt to borrow a third time
+        // test to see if current borrowed + new borrowed will exceed maxBorrow
         vm.warp(block.timestamp + 12 seconds);
-        vm.expectRevert("User has already borrowed the allowed amount of times/value.");
-        crabEngine.borrow(borrowAmount);
+        uint256 maximumBorrow = crabEngine.getTotalBorrowableAmount();
+        vm.expectRevert("Amount exceeds collateral borrow value");
+        crabEngine.borrow(maximumBorrow);
         
         vm.stopPrank();
     }
