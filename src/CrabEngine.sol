@@ -55,6 +55,7 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         uint256 lastPaidAt;     // last time fees were accumulated
         uint256 borrowAmount;   // total borrowed value without interest
         uint256 debt;           // owed fees
+        uint256 refreshedAt;    // time at which fees were last calculated
     }
 
     ///////////////////
@@ -234,7 +235,7 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         else /* user borrowing for the 2nd (or more) time*/{
             require (amount + s_userBorrows[msg.sender].borrowAmount < maxBorrow, "Amount exceeds collateral borrow value");
 
-            s_userBorrows[msg.sender].debt += _calculateFeeForPosition(msg.sender);
+            _calculateFeeForPosition(msg.sender);
             s_userBorrows[msg.sender].borrowAmount += amount;
             s_userBorrows[msg.sender].lastPaidAt = block.timestamp;            
             s_protocolDebtInCrab += amount;
@@ -253,9 +254,11 @@ contract CrabEngine is ReentrancyGuard, ICDP {
      * @param amount the amount to repay.
      */
     function repay(uint256 amount) external moreThanZero(amount) nonReentrant {
-        // get the amount borrowed by the user
+        uint256 secondsSince = block.timestamp - s_userBorrows[msg.sender].refreshedAt;
+        require (secondsSince <= OracleLib.TIMEOUT, "Stale fee. Refresh fee by calling getUserOwedAmount first.");
+
         uint256 amountOfCrabBorrowed = s_userBorrows[msg.sender].borrowAmount;
-        uint256 owedFees = _calculateFeeForPosition(msg.sender);
+        uint256 owedFees = s_userBorrows[msg.sender].debt;
 
         // checks if the user has enough borrowed amount
         if (amountOfCrabBorrowed + owedFees < amount) {
@@ -265,6 +268,7 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         if (amountOfCrabBorrowed + owedFees != amount) {
             revert("User must payback the EXACT amount owed.");
         }
+
         // update borrowed balance and reset user
         s_protocolDebtInCrab -= amountOfCrabBorrowed;
         delete s_userBorrows[msg.sender];
@@ -303,22 +307,28 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         }
     }
 
-
+    /**
+     * @dev Gets user's owed amount.
+     *
+     */
+    function getUserOwedAmount() public returns (uint256) {
+        return s_userBorrows[msg.sender].borrowAmount + _calculateFeeForPosition(msg.sender);
+    }
 
     ///////////////////
     // Private Functions
     ///////////////////
 
     /**
-     * @dev Calculates the fee for the user's position.
-     *
+     * @dev Calculates the fee for the user's position. Also sets refreshedAt for the user and add fee to their debt.
+     * 
      * @param user the user address to calculate the fee for.
      */
-    function _calculateFeeForPosition(address user) private view returns (uint256 totalFee) {
-        UserBorrows memory userInformation = s_userBorrows[user];
-        require(userInformation.borrowAmount != 0, "User is yet to borrow anything.");
-
-        totalFee = userInformation.borrowAmount * (block.timestamp - userInformation.lastPaidAt) * INTEREST_PER_SHARE_PER_SECOND;
+    function _calculateFeeForPosition(address user) private returns (uint256 totalFee) {
+        require(s_userBorrows[user].borrowAmount != 0, "User is yet to borrow anything.");
+        s_userBorrows[user].refreshedAt = block.timestamp;
+        totalFee = s_userBorrows[user].borrowAmount * (block.timestamp - s_userBorrows[user].lastPaidAt) * INTEREST_PER_SHARE_PER_SECOND;
+        s_userBorrows[user].debt += totalFee;
     }
 
     /**
