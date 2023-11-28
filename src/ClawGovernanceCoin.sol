@@ -132,4 +132,6 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
         Proposal memory proposal = proposals[proposalId];
         return (proposal.proposer, proposal.ltv, proposal.yesVotes, proposal.noVotes, proposal.endTime);
     }
+
+    function execute(uint256 proposalId) external {}
 }

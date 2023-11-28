@@ -200,10 +200,11 @@ contract CrabEngineTest is Test {
         crabEngine.borrow(borrowAmount);
         assertEq(crabStableCoin.balanceOf(user), 2 * borrowAmount);
 
-        // attempt to borrow a third time
+        // test to see if current borrowed + new borrowed will exceed maxBorrow
         vm.warp(block.timestamp + 12 seconds);
-        vm.expectRevert("User has already borrowed the allowed amount of times/value.");
-        crabEngine.borrow(borrowAmount);
+        uint256 maximumBorrow = crabEngine.getTotalBorrowableAmount();
+        vm.expectRevert("Amount exceeds collateral borrow value");
+        crabEngine.borrow(maximumBorrow);
         
         vm.stopPrank();
     }
@@ -239,34 +240,37 @@ contract CrabEngineTest is Test {
     ///////////////////////////////////////
     function testRepay() public {
         // deposit funds
-        MockERC20(weth).mint(user, 1 ether);
+        MockERC20(weth).mint(user, 15 ether);
 
-        // give the user funds to pay back
-        uint256 feeAfter12Days = 3_287_671_232_486_400;
-        vm.prank(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512);
-        crabStableCoin.mint(user, feeAfter12Days);
-
+        // Approve the CrabEngine contract to spend the user's tokens
         vm.startPrank(user);
-        MockERC20(weth).approve(address(crabEngine), 1 ether);
+        MockERC20(weth).approve(address(crabEngine), 2 ether);     
         crabEngine.depositCollateral(weth, 1 ether);
 
-        
         vm.warp(block.timestamp + 12 seconds);
         crabEngine.borrow(1 ether);
         
-        // total that must be returned = 1_003_287_671_232_486_400
-        uint256 userBalance = crabStableCoin.balanceOf(user);
-        
+        // attempt to pay without calculating fee
+        vm.expectRevert("Stale fee. Refresh fee by calling getUserOwedAmount first.");
+        crabEngine.repay(1);
+
+        crabEngine.getUserOwedAmount();  
+
+        // attempt to pay after exceeding heartbeat
         vm.warp(block.timestamp + 12 days);        
-        vm.expectRevert("Insufficient borrowed amount");
-        crabEngine.repay(userBalance + 1);
+        vm.expectRevert("Stale fee. Refresh fee by calling getUserOwedAmount first.");
+        crabEngine.repay(1);
+        uint256 owedAmount = crabEngine.getUserOwedAmount();
+        vm.stopPrank();
+        
+        // give the user funds to pay back
+        vm.prank(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512);        
+        crabStableCoin.mint(user, owedAmount);    
 
-        vm.expectRevert("User must payback the EXACT amount owed.");
-        crabEngine.repay(userBalance - 1);
-
-        crabStableCoin.approve(address(crabEngine), userBalance);
-        crabEngine.repay(userBalance);
-        assertEq(crabStableCoin.balanceOf(user), 0);
+        // pay properly
+        vm.startPrank(user);    
+        crabStableCoin.approve(address(crabEngine), owedAmount);
+        crabEngine.repay(owedAmount);
 
         vm.stopPrank();
     }
