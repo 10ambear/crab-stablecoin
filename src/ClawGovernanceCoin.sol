@@ -34,9 +34,7 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
     // Define a mapping to track the last address an address voted from
     mapping(address => address) public lastVotedFrom;
 
-    constructor(address stakingContractAddress) ERC20("Claw governance", "CLAW") Ownable(msg.sender) {
-        stakingContract = ClawGovernanceStaking(stakingContractAddress);
-    }
+    constructor() ERC20("Claw governance", "CLAW") Ownable(msg.sender) { }
 
     /**
      * @dev propose a new proposal
@@ -159,6 +157,16 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
 
         // Mark the proposal as executed
         proposal.executed = true;
+    }
+
+    /**
+     * @dev sets the staking contract address
+     *
+     * @param _stakingContractAddress the address of the staking contract
+     * this is definitley a risk, but assume the owner is a trusted multisig
+     */
+    function setStakingContract(address _stakingContractAddress) external onlyOwner {
+        stakingContract = ClawGovernanceStaking(_stakingContractAddress);
     }
 
     function getCompleteUserBalance(address user) private view returns (uint256) {
