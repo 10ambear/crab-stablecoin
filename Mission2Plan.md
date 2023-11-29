@@ -1,9 +1,6 @@
 # Mission 2 Meeting Plan
 
 ## Breakdown of Mission tasks
-- Liquidity for your stablecoin so it can be swapped on a decentralized exchange in your local environment.
-- Positions that fall below the required LTV ratio for their basket of collateral and corresponding borrow amount can be “liquidated” (force-closed) with a liquidate function.
-
 Governance proposals may be executed:
 - Governance proposals must have passed the 5 day voting period since proposal to be executable.
 - Governance proposals cannot be voted on outside of the 5 day voting period.
@@ -25,6 +22,8 @@ Governance proposals may be executed:
 
 ## Attack Plan
 
-### [Partner 1] Goals & Responsibilities
+### [Sheep] Goals & Responsibilities
+- Liquidity for your stablecoin so it can be swapped on a decentralized exchange in your local environment.
+- Positions that fall below the required LTV ratio for their basket of collateral and corresponding borrow amount can be “liquidated” (force-closed) with a liquidate function.
 
-### [Partner 2] Goals & Responsibilities
+### [bLnk] Goals & Responsibilities

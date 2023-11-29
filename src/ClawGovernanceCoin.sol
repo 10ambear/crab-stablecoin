@@ -4,14 +4,18 @@ pragma solidity 0.8.21;
 import { ERC20Burnable, ERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IGov } from "./interfaces/IGov.sol";
+import { ClawGovernanceStaking } from "./ClawGovernanceStaking.sol";
 
 contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
     error ClawGovCoin__AmountMustBeMoreThanZero();
     error ClawGovCoin__BurnAmountExceedsBalance();
     error ClawGovCoin__NotZeroAddress();
 
+    ClawGovernanceStaking public stakingContract;
+
     // Define a struct for the proposal
     struct Proposal {
+        bool executed;
         address proposer;
         address token;
         uint256 ltv;
@@ -30,7 +34,9 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
     // Define a mapping to track the last address an address voted from
     mapping(address => address) public lastVotedFrom;
 
-    constructor() ERC20("Claw governance", "CLAW") Ownable(msg.sender) { }
+    constructor(address stakingContractAddress) ERC20("Claw governance", "CLAW") Ownable(msg.sender) {
+        stakingContract = ClawGovernanceStaking(stakingContractAddress);
+    }
 
     /**
      * @dev propose a new proposal
@@ -41,14 +47,15 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
      * @param ltv The new LTV proposed
      */
     function propose(address token, uint256 ltv) external returns (uint256 proposalId) {
-        uint256 totalTokenBalanceForSender = balanceOf(msg.sender);
-        uint256 onePercentTotalSupplyOfToken = totalSupply() / 100;
+        uint256 totalTokenBalanceForSender = getCompleteUserBalance(msg.sender);
+        uint256 onePercentTotalSupplyOfToken = (totalSupply() + stakingContract.getTotalStakedAmount()) / 100;
 
         // Check if the user has at least 1% of the total supply
         require(totalTokenBalanceForSender > onePercentTotalSupplyOfToken, "Must hold more than 1% of the totalSupply");
 
         proposalId = proposalCount++;
         proposals[proposalId] = Proposal({
+            executed: false,
             proposer: msg.sender,
             token: token,
             ltv: ltv,
@@ -75,7 +82,7 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
         require(block.timestamp < proposal.endTime, "Proposal has ended");
 
         // using balanceof to check the user's complete balance
-        uint256 voterBalance = balanceOf(msg.sender);
+        uint256 voterBalance = getCompleteUserBalance(msg.sender);
         require(voterBalance > 0, "No governance tokens to vote with");
 
         // Check if the user has already voted on this proposal
@@ -133,5 +140,32 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
         return (proposal.proposer, proposal.ltv, proposal.yesVotes, proposal.noVotes, proposal.endTime);
     }
 
-    function execute(uint256 proposalId) external {}
+    function execute(uint256 proposalId) external {
+        // Fetch the proposal
+        Proposal storage proposal = proposals[proposalId];
+
+        // Check if the proposal has ended
+        require(block.timestamp > proposal.endTime, "Proposal has not ended yet");
+
+        // Check if the proposal has been executed already
+        require(!proposal.executed, "Proposal has already been executed");
+
+        uint256 totalVotes = proposal.yesVotes + proposal.noVotes;
+        // Check if the proposal has reached more than 50% of the total supply in voting power
+        require(
+            totalVotes > getTotalSupplyOfGovernanceTokens() / 2,
+            "Proposal has not reached more than 50% of the total supply in voting power"
+        );
+
+        // Mark the proposal as executed
+        proposal.executed = true;
+    }
+
+    function getCompleteUserBalance(address user) private view returns (uint256) {
+        return balanceOf(user) + stakingContract.getStake(user);
+    }
+
+    function getTotalSupplyOfGovernanceTokens() private view returns (uint256) {
+        return totalSupply() + stakingContract.getTotalStakedAmount();
+    }
 }

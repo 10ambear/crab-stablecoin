@@ -9,6 +9,7 @@ import { ICDP } from "./interfaces/ICDP.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { console } from "forge-std/Test.sol";
 
+
 import "forge-std/console.sol";
 
 /*
@@ -90,6 +91,9 @@ contract CrabEngine is ReentrancyGuard, ICDP {
     /// @dev vars related to precision during oracle use
     uint256 private constant PRECISION = 1e18;
     uint256 private constant EQUALIZER_PRECISION = 1e10;
+
+    /// @dev liquidation reward constant 5%
+    uint256 private constant LIQUIDATION_REWARD = 500;
 
     ///////////////////
     // Events
