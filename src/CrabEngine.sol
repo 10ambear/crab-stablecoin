@@ -8,7 +8,7 @@ import { CrabStableCoin } from "./CrabStableCoin.sol";
 import { ICDP } from "./interfaces/ICDP.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { console } from "forge-std/Test.sol";
-
+import { ILiquidationCallback } from "./interfaces/ILiquidationCallback.sol";
 
 import "forge-std/console.sol";
 
@@ -156,6 +156,60 @@ contract CrabEngine is ReentrancyGuard, ICDP {
     // External Functions
     ///////////////////
     /**
+     * @dev Liquidate a position that has breached the LTV ratio for it's basket of collateral.
+     *
+     * @param user the user who's position should be liquidated.
+     * @param liquidationCallback the liquidation callback contract to send collateral to.
+     */
+     // @note who fires off ths function, how do we know who to liquidate and when, 
+     // other than manually calling this function and doing it ourselves
+    function liquidate(address user, ILiquidationCallback liquidationCallback) external { 
+        // get the crab borrowed
+        uint256 amountOfCrabBorrowed = getUserCrabBalance(user);
+        if (amountOfCrabBorrowed == 0) {
+            revert("User has no debt");
+        }
+        uint256 userCollateralValue = 0;    
+        // loop through all the collateral tokens and get the value of the collateral
+        for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
+            address token = s_typesOfCollateralTokens[i];
+            uint256 tokenAmount = s_collateralDeposited[user][token];
+            uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
+            userCollateralValue += fullPrice;
+        }
+        // get the collateral value required to keep the ltv ratio
+        uint256 collateralValueRequiredToKeepltv = (userCollateralValue - amountOfCrabBorrowed) * 100
+            / s_collateralTokenAndRatio[s_typesOfCollateralTokens[0]];
+        if (collateralValueRequiredToKeepltv > userCollateralValue) {
+            revert("User has no debt");
+
+        }
+        uint256 liquidationReward = amountOfCrabBorrowed * LIQUIDATION_REWARD / 100;
+        uint256 collateralToLiquidate = amountOfCrabBorrowed + liquidationReward;
+        uint256 collateralLiquidated = 0;
+
+        // loop through all the collateral tokens and liquidate the collateral
+        for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
+            address token = s_typesOfCollateralTokens[i];
+            uint256 tokenAmount = s_collateralDeposited[user][token];
+            uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
+            uint256 collateralToLiquidateInToken = collateralToLiquidate * fullPrice / userCollateralValue;
+            if (collateralToLiquidateInToken > tokenAmount) {
+                collateralToLiquidateInToken = tokenAmount;
+            }
+            // update user collateral
+            s_collateralDeposited[user][token] -= collateralToLiquidateInToken;
+            IERC20(token).safeTransfer(address(liquidationCallback), collateralToLiquidateInToken);
+            collateralLiquidated += collateralToLiquidateInToken;
+        }
+        // update borrowed balance and reset user
+        s_protocolDebtInCrab -= amountOfCrabBorrowed;
+        i_crabStableCoin.burn(amountOfCrabBorrowed);
+        i_crabStableCoin.mint(address(liquidationCallback), liquidationReward);
+        emit CollateralRedeemed(user, address(liquidationCallback), address(0), collateralLiquidated);
+    }
+
+    /**
      * @dev Deposit the specified collateral into the caller's position.
      * Only supported collateralToken's are allowed.
      *
@@ -197,7 +251,6 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         uint256 amountOfCrabBorrowed = getUserCrabBalance(msg.sender);
         if (amountOfCrabBorrowed > 0) {
             CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
-            // todo definitely precision errors
             uint256 remainingCollateralValueAfterWithdrawal = (
                 s_collateralDeposited[msg.sender][collateralTokenAddress] - amount
             ) * getPriceInUSDForTokens(collateralTokenAddress, 1);
