@@ -40,10 +40,6 @@ contract ClawGovernanceStaking is ERC20, ERC20Burnable, Ownable, IGovStake {
 
         // Transfer ClawGovernanceCoin tokens from the user to this contract
         i_clawGovernanceCoin.transferFrom(msg.sender, address(this), amount);
-
-        // Burn the transferred ClawGovernanceCoin tokens so we don't count them twice
-        // todo this is going to fail because of the onlyOwner modifier
-        i_clawGovernanceCoin.burn(amount);
     }
 
     /**
@@ -62,20 +58,18 @@ contract ClawGovernanceStaking is ERC20, ERC20Burnable, Ownable, IGovStake {
         stakes[msg.sender] -= amount;
         totalStakedAmount -= amount;
 
-        // Mint ClawGovernanceCoin tokens to the user
-        // todo this is going to fail because of the onlyOwner modifier
-        i_clawGovernanceCoin.mint(msg.sender, amount);
+        // transfer ClawGovernanceCoin tokens to the user
+        i_clawGovernanceCoin.transferFrom(address(this), msg.sender, amount);
     }
 
-    // todo ignore this for now
     function claim() external {
         uint256 userStakingRewards;
         // todo no idea how i'd do this
         uint256 protoclAccumulatedInterestFeesDuringStakePeriond;
         uint256 userStakedAmount = stakes[msg.sender];
-        uint256 totalStakedAmount = totalStakedAmount;
+        uint256 _totalStakedAmount = totalStakedAmount;
 
-        userStakingRewards = protoclAccumulatedInterestFeesDuringStakePeriond * userStakedAmount / totalStakedAmount;
+        userStakingRewards = protoclAccumulatedInterestFeesDuringStakePeriond * userStakedAmount / _totalStakedAmount;
 
         // todo transfer stablecoins lel this contract has no stable coins?
     }

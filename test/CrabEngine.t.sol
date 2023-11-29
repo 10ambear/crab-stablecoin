@@ -11,6 +11,11 @@ import {MockERC20} from "./mocks/MockERC20.sol";
 
 
 contract CrabEngineTest is Test {
+
+    address public constant usdcWhale = 0xDa9CE944a37d218c3302F6B82a094844C6ECEb17;
+    address public constant wethWhale = 0x2fEb1512183545f48f6b9C5b4EbfCaF49CfCa6F3;
+    address public constant daiWhale = 0x60FaAe176336dAb62e284Fe19B885B095d29fB7F;
+    
     DeployCrab crabDeployer;
     CrabStableCoin crabStableCoin;
     CrabEngine crabEngine;
@@ -50,10 +55,20 @@ contract CrabEngineTest is Test {
         new CrabEngine(tokenAddresses, feedAddresses, priceFeedDecimals,tvlRatios, address(crabEngine));
     }
 
+    ///////////////////////////////////////
+    // uniswap stuffs //
+    ///////////////////////////////////////
+
+    function test_uniswapSwapCrabForUsdc() public {
+        address bob = makeAddr("bob");
+        MockERC20(weth).mint(bob, 10e18);
+
+    }
+
+
     //////////////////
     // Price Tests //
     //////////////////
-
 
     function testGetUsdValue() public {
         uint256 ethAmount = 15e18;
