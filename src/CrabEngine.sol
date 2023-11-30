@@ -176,8 +176,6 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
      * @param user the user who's position should be liquidated.
      * @param liquidationCallback the liquidation callback contract to send collateral to.
      */
-     // @note who fires off ths function, how do we know who to liquidate and when, 
-     // other than manually calling this function and doing it ourselves??????
     function liquidate(address user, ILiquidationCallback liquidationCallback) external { 
         // get the crab borrowed
         uint256 amountOfCrabBorrowed = getUserCrabBalance(user);
@@ -201,6 +199,7 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
         }
         uint256 liquidationReward = amountOfCrabBorrowed * LIQUIDATION_REWARD / 100;
         uint256 collateralToLiquidate = amountOfCrabBorrowed + liquidationReward;
+        // todo lame
         uint256 collateralLiquidated = 0;
 
         // loop through all the collateral tokens and liquidate the collateral
@@ -209,6 +208,7 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
             uint256 tokenAmount = s_collateralDeposited[user][token];
             uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
             uint256 collateralToLiquidateInToken = collateralToLiquidate * fullPrice / userCollateralValue;
+            // todo fucked :(
             if (collateralToLiquidateInToken > tokenAmount) {
                 collateralToLiquidateInToken = tokenAmount;
             }
@@ -220,7 +220,6 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
         // update borrowed balance and reset user
         s_protocolDebtInCrab -= amountOfCrabBorrowed;
         i_crabStableCoin.burn(amountOfCrabBorrowed);
-        i_crabStableCoin.mint(address(liquidationCallback), liquidationReward);
         emit CollateralRedeemed(user, address(liquidationCallback), address(0), collateralLiquidated);
     }
 
@@ -257,28 +256,28 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
     function withdrawCollateral(
         address collateralTokenAddress,
         uint256 amount
-    )
-        external
-        moreThanZero(amount)
-        isAllowedToken(collateralTokenAddress)
-        nonReentrant
-    {
-        uint256 amountOfCrabBorrowed = getUserCrabBalance(msg.sender);
-        if (amountOfCrabBorrowed > 0) {
-            CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
-            uint256 remainingCollateralValueAfterWithdrawal = (
-                s_collateralDeposited[msg.sender][collateralTokenAddress] - amount
-            ) * getPriceInUSDForTokens(collateralTokenAddress, 1);
-            uint256 collateralValueRequiredToKeepltv =
-                (remainingCollateralValueAfterWithdrawal - amountOfCrabBorrowed) * tokenData.ltvRatio / 100;
-            if (collateralValueRequiredToKeepltv > remainingCollateralValueAfterWithdrawal) {
-                revert("Withdrawal would violate LTV ratio");
+        )
+            external
+            moreThanZero(amount)
+            isAllowedToken(collateralTokenAddress)
+            nonReentrant
+        {
+            uint256 amountOfCrabBorrowed = getUserCrabBalance(msg.sender);
+            if (amountOfCrabBorrowed > 0) {
+                CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
+                uint256 remainingCollateralValueAfterWithdrawal = (
+                    s_collateralDeposited[msg.sender][collateralTokenAddress] - amount
+                ) * getPriceInUSDForTokens(collateralTokenAddress, 1);
+                uint256 collateralValueRequiredToKeepltv =
+                    (remainingCollateralValueAfterWithdrawal - amountOfCrabBorrowed) * tokenData.ltvRatio / 100;
+                if (collateralValueRequiredToKeepltv > remainingCollateralValueAfterWithdrawal) {
+                    revert("Withdrawal would violate LTV ratio");
+                }
             }
+            s_collateralDeposited[msg.sender][collateralTokenAddress] -= amount;
+            IERC20(collateralTokenAddress).safeTransfer(msg.sender, amount);
+            emit CollateralRedeemed(msg.sender, msg.sender, collateralTokenAddress, amount);
         }
-        s_collateralDeposited[msg.sender][collateralTokenAddress] -= amount;
-        IERC20(collateralTokenAddress).safeTransfer(msg.sender, amount);
-        emit CollateralRedeemed(msg.sender, msg.sender, collateralTokenAddress, amount);
-    }
 
     /**
      * @dev Borrow protocol stablecoins against the caller's collateral.
