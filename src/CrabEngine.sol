@@ -382,7 +382,7 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
     ///////////////////
 
     //@todo add onlyOwner
-    function addCoinAndFeed(address coin, address feed, uint8 ltv, uint8 decimals) public {
+    function addCoinAndFeed(address coin, address feed, uint8 ltv, uint8 decimals) public onlyOwner {
         s_collateralTokenData[coin] = CollateralToken(feed, ltv, decimals);
     }
 
