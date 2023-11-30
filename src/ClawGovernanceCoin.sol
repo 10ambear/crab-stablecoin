@@ -50,7 +50,7 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
 
         // Check if the user has at least 1% of the total supply
         require(totalTokenBalanceForSender > onePercentTotalSupplyOfToken, "Must hold more than 1% of the totalSupply");
-
+      
         proposalId = proposalCount++;
         proposals[proposalId] = Proposal({
             executed: false,
@@ -132,21 +132,21 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
     function getProposal(uint256 proposalId)
         public
         view
-        returns (address proposer, uint256 ltv, uint256 yesVotes, uint256 noVotes, uint256 endTime)
+        returns (bool executed, address proposer, uint256 ltv, uint256 yesVotes, uint256 noVotes, uint256 endTime)
     {
         Proposal memory proposal = proposals[proposalId];
-        return (proposal.proposer, proposal.ltv, proposal.yesVotes, proposal.noVotes, proposal.endTime);
+        return (proposal.executed, proposal.proposer, proposal.ltv, proposal.yesVotes, proposal.noVotes, proposal.endTime);
     }
 
     function execute(uint256 proposalId) external {
         // Fetch the proposal
         Proposal storage proposal = proposals[proposalId];
 
-        // Check if the proposal has ended
-        require(block.timestamp > proposal.endTime, "Proposal has not ended yet");
-
         // Check if the proposal has been executed already
         require(!proposal.executed, "Proposal has already been executed");
+
+        // Check if the proposal has ended
+        require(block.timestamp > proposal.endTime, "Proposal has not ended yet");
 
         uint256 totalVotes = proposal.yesVotes + proposal.noVotes;
         // Check if the proposal has reached more than 50% of the total supply in voting power
@@ -169,10 +169,12 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
         stakingContract = ClawGovernanceStaking(_stakingContractAddress);
     }
 
+    // view function that gets the complete balance of a user (claw + staked claw)
     function getCompleteUserBalance(address user) private view returns (uint256) {
         return balanceOf(user) + stakingContract.getStake(user);
     }
 
+    // view function that gets the total supply of governance tokens in circulation (claw + staked claw)
     function getTotalSupplyOfGovernanceTokens() private view returns (uint256) {
         return totalSupply() + stakingContract.getTotalStakedAmount();
     }
