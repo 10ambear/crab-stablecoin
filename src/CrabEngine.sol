@@ -177,7 +177,7 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
      * @param liquidationCallback the liquidation callback contract to send collateral to.
      */
      // @note who fires off ths function, how do we know who to liquidate and when, 
-     // other than manually calling this function and doing it ourselves
+     // other than manually calling this function and doing it ourselves??????
     function liquidate(address user, ILiquidationCallback liquidationCallback) external { 
         // get the crab borrowed
         uint256 amountOfCrabBorrowed = getUserCrabBalance(user);
@@ -185,7 +185,7 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
             revert("User has no debt");
         }
         uint256 userCollateralValue = 0;    
-        // loop through all the collateral tokens and get the value of the collateral
+        // loop through all the collateral tokens and get the total value of the collateral
         for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
             address token = s_typesOfCollateralTokens[i];
             uint256 tokenAmount = s_collateralDeposited[user][token];
