@@ -5,6 +5,8 @@ import { Script } from "forge-std/Script.sol";
 import { HelperConfig } from "./HelperConfig.s.sol";
 import { CrabStableCoin } from "../src/CrabStableCoin.sol";
 import { CrabEngine } from "../src/CrabEngine.sol";
+import { ClawGovernanceCoin } from "../src/ClawGovernanceCoin.sol";
+import { ClawGovernanceStaking } from "../src/ClawGovernanceStaking.sol";
 
 contract DeployCrab is Script {
 
@@ -13,8 +15,13 @@ contract DeployCrab is Script {
     uint8[] priceFeedDecimals;
     uint8[] tvlRatios;
 
+    // moved outside of run due to stackTooDeep exception caused by num of local vars
+    CrabStableCoin crabStableCoin;
+    CrabEngine crabEngine;
+    ClawGovernanceCoin clawCoin;
+    ClawGovernanceStaking clawStake;
 
-    function run() external returns (CrabStableCoin, CrabEngine, HelperConfig) {
+    function run() external returns (CrabStableCoin, CrabEngine, ClawGovernanceCoin, ClawGovernanceStaking, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
 
         (
@@ -34,8 +41,8 @@ contract DeployCrab is Script {
         tvlRatios = [70, 80, 50];
 
         vm.startBroadcast(deployerKey);
-        CrabStableCoin crabStableCoin = new CrabStableCoin();
-        CrabEngine crabEngine = new CrabEngine(
+        crabStableCoin = new CrabStableCoin();
+        crabEngine = new CrabEngine(
             tokenAddresses,
             priceFeedAddresses,
             priceFeedDecimals,
@@ -45,7 +52,12 @@ contract DeployCrab is Script {
 
         // transfer the stablecoin ownership to the crabEngine
         crabStableCoin.transferOwnership(address(crabEngine));
+
+        clawCoin = new ClawGovernanceCoin();
+        clawStake = new ClawGovernanceStaking(address(clawCoin), address(crabEngine));
+        clawCoin.setStakingContract(address(clawStake));
+
         vm.stopBroadcast();
-        return (crabStableCoin, crabEngine, helperConfig);
+        return (crabStableCoin, crabEngine, clawCoin, clawStake, helperConfig);
     }
 }
