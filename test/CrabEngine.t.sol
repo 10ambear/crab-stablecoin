@@ -3,6 +3,8 @@ pragma solidity 0.8.21;
 
 import "../src/CrabEngine.sol";
 import "../src/CrabStableCoin.sol";
+import "../src/ClawGovernanceCoin.sol";
+import "../src/ClawGovernanceStaking.sol";
 import {Test, console} from "forge-std/Test.sol";
 import {DeployCrab} from "../script/DeployCrab.s.sol";
 import { HelperConfig } from "../script/HelperConfig.s.sol";
@@ -19,6 +21,8 @@ contract CrabEngineTest is Test {
     DeployCrab crabDeployer;
     CrabStableCoin crabStableCoin;
     CrabEngine crabEngine;
+    ClawGovernanceCoin clawCoin;
+    ClawGovernanceStaking clawStake;
     HelperConfig helperConfig;
     address wethUsdPriceFeed;
     address weth;
@@ -31,7 +35,7 @@ contract CrabEngineTest is Test {
 
     function setUp() public {
         crabDeployer = new DeployCrab();
-        (crabStableCoin, crabEngine, helperConfig) = crabDeployer.run();
+        (crabStableCoin, crabEngine, clawCoin, clawStake, helperConfig) = crabDeployer.run();
         (wethUsdPriceFeed, weth, , , , , ) = helperConfig.activeNetworkConfig();
         vm.deal(user, STARTING_USER_BALANCE);
     }
@@ -290,6 +294,65 @@ contract CrabEngineTest is Test {
         vm.stopPrank();
     }
 
-    
+
+    ///////////////////////////////////////
+    // Staker Tests //
+    ///////////////////////////////////////
+    function testStakeUnstake() public {
+        uint256 coinBalance = 10;
+        uint256 singularStake = coinBalance / 2;
+        
+        vm.prank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+        clawCoin.mint(user, coinBalance);
+
+        address user2 = address(2);
+        vm.prank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+        clawCoin.mint(user2, coinBalance);
+
+        vm.startPrank(user);
+        vm.expectRevert("Amount must be more than 0");
+        clawStake.stake(0);
+
+        vm.expectRevert("Not enough funds");
+        clawStake.stake(coinBalance + 1);
+
+        // test first stake no if
+        clawCoin.approve(address(clawStake), singularStake);
+        clawStake.stake(singularStake);
+        assertEq(singularStake, clawStake.getTotalStakedAmount());
+        assertEq(singularStake, clawStake.getStake(user));
+        
+        // test if
+        clawCoin.approve(address(clawStake), singularStake);
+        clawStake.stake(singularStake);
+        assertEq(coinBalance, clawStake.getTotalStakedAmount());
+        assertEq(coinBalance, clawStake.getStake(user));
+        vm.stopPrank();
+
+        // test 2nd user stake
+        vm.startPrank(user2);
+        clawCoin.approve(address(clawStake), singularStake);
+        clawStake.stake(singularStake);
+        assertEq(singularStake * 3, clawStake.getTotalStakedAmount());
+        assertEq(singularStake, clawStake.getStake(user2));
+        vm.stopPrank();
+
+        // test first user unstake
+        vm.startPrank(user);
+        vm.expectRevert("Amount must be more than 0");
+        clawStake.unstake(0);
+
+        vm.expectRevert("Amount must be more than 0");
+        clawStake.unstake(0);
+
+        // test if user can unstake twice
+        clawStake.unstake(singularStake);
+        assertEq(singularStake * 2, clawStake.getTotalStakedAmount());
+        assertEq(singularStake, clawStake.getStake(user)); 
+
+        clawStake.unstake(singularStake);
+        assertEq(singularStake, clawStake.getTotalStakedAmount());
+        assertEq(0, clawStake.getStake(user));       
+    }
 
 }

@@ -40,6 +40,7 @@ contract ClawGovernanceStaking is ERC20, ERC20Burnable, Ownable, IGovStake {
     function stake(uint256 amount) external {
         // Check if the amount is more than 0
         require(amount > 0, "Amount must be more than 0");
+        require(i_clawGovernanceCoin.balanceOf(msg.sender) >= amount, "Not enough funds");
         
         uint256 fees = i_crabEngine.getGeneratedFees();
         // not first time staking
@@ -78,6 +79,8 @@ contract ClawGovernanceStaking is ERC20, ERC20Burnable, Ownable, IGovStake {
         stakes[msg.sender].feesGeneratedAtStakingTime = fees;      
         totalStakedAmount -= amount;
 
+        // why is this necessary? @todo
+        i_clawGovernanceCoin.approve(address(this), amount);
         i_clawGovernanceCoin.transferFrom(address(this), msg.sender, amount);
     }
     
