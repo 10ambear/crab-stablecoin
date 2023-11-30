@@ -4,7 +4,6 @@ pragma solidity 0.8.21;
 import { ERC20Burnable, ERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IGovStake } from "./interfaces/IGovStake.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ClawGovernanceCoin } from "./ClawGovernanceCoin.sol";
 import { CrabEngine } from "./CrabEngine.sol";
 
@@ -81,7 +80,7 @@ contract ClawGovernanceStaking is ERC20, ERC20Burnable, Ownable, IGovStake {
 
         i_clawGovernanceCoin.transferFrom(address(this), msg.sender, amount);
     }
-
+    
     function claim() external {
         require(stakes[msg.sender].stakeAmount > 0 || stakes[msg.sender].accruedRewards > 0,
                 "User has nothing to claim");

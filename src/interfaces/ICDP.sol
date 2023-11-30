@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
+import {ILiquidationCallback} from "./ILiquidationCallback.sol";
 
 interface ICDP {
     /**
@@ -41,5 +42,5 @@ interface ICDP {
      * @param user the user who's position should be liquidated.
      * @param liquidationCallback the liquidation callback contract to send collateral to.
      */
-    //function liquidate(address user, ILiquidationCallback liquidationCallback) external;
+    function liquidate(address user, ILiquidationCallback liquidationCallback) external;
 }
