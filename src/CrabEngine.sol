@@ -7,6 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CrabStableCoin } from "./CrabStableCoin.sol";
 import { ICDP } from "./interfaces/ICDP.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { console } from "forge-std/Test.sol";
 
 
@@ -25,7 +26,7 @@ import "forge-std/console.sol";
  * for minting and redeeming Crab, as well as depositing and withdrawing collateral.
  * @notice This contract is based on the MakerDAO DSS system
  */
-contract CrabEngine is ReentrancyGuard, ICDP {
+contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
     ///////////////////
     // Errors
     ///////////////////
@@ -34,6 +35,7 @@ contract CrabEngine is ReentrancyGuard, ICDP {
     error CrabEngine__TokenNotAllowed(address token);
     error CrabEngine__TransferFailed();
     error CrabEngine__MintFailed();
+    error CrabEngine_NotStakerContract();
 
     ///////////////////
     // Types & interfaces
@@ -84,6 +86,12 @@ contract CrabEngine is ReentrancyGuard, ICDP {
     /// @dev the total debt of the protocol
     uint256 private s_protocolDebtInCrab;
 
+    /// @dev keeping track of the fees generated during the protocol's lifetime
+    uint256 private totalFeesGenerated;
+
+    /// @dev staker contract address
+    address private stakerAddress; 
+
     /// @dev fee variables
     uint256 private constant INTEREST_PER_SHARE_PER_SECOND = 3_170_979_198; // positionSize/10 = positionSize *
         // seconds_per_year * interestPerSharePerSec
@@ -121,6 +129,13 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         _;
     }
 
+    modifier onlyStakerAddress() {
+        if (msg.sender != stakerAddress) {
+            revert CrabEngine_NotStakerContract();
+        }
+        _;
+    }
+
     ///////////////////
     // constructor
     ///////////////////
@@ -130,7 +145,7 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         uint8[] memory priceFeedDecimals,
         uint8[] memory tvlRatios,
         address crabAddress
-    ) {
+    ) Ownable(msg.sender) {
         if (
             tokenAddresses.length != priceFeedAddresses.length || tokenAddresses.length != tvlRatios.length
                 || tokenAddresses.length != priceFeedDecimals.length
@@ -284,10 +299,29 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         if (!success) {
             revert CrabEngine__TransferFailed();
         }
-        // burn crabTokens
-        i_crabStableCoin.burn(amount);
+        // burn borrowed amount, keep fees for staker rewards
+        i_crabStableCoin.burn(amountOfCrabBorrowed);
 
         emit BorrowedAmountRepaid(msg.sender, amount);
+    }
+
+    /**
+     * @dev transfer crab tokens to user that is attempting to claim rewards
+     *
+     * @param receiver is addr of claimer
+     * @param amount is amount to give to claimer
+     */
+    function transferCrabToStaker(address receiver, uint256 amount) external onlyStakerAddress()  {
+        i_crabStableCoin.transferFrom(address(this), receiver, amount);
+    }
+
+    /**
+     * @dev set staker to turn on onlyStakerAddress modifier
+     *
+     * @param addr is addr of staker contract
+     */
+    function setStakerAddress(address addr) external onlyOwner {
+        stakerAddress = addr;
     }
 
     ///////////////////
@@ -334,6 +368,10 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         return ((uint256(price) * EQUALIZER_PRECISION) * tokenAmount) / PRECISION;
     }
 
+    function getGeneratedFees() public view returns (uint256) {
+        return totalFeesGenerated;
+    }
+
     ///////////////////
     // Private Functions
     ///////////////////
@@ -349,6 +387,7 @@ contract CrabEngine is ReentrancyGuard, ICDP {
         totalFee = s_userBorrows[user].borrowAmount * (block.timestamp - s_userBorrows[user].lastPaidAt)
             * INTEREST_PER_SHARE_PER_SECOND;
         s_userBorrows[user].debt += totalFee;
+        totalFeesGenerated += totalFeesGenerated;
     }
 
     /**
