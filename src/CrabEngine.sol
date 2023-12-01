@@ -111,6 +111,7 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
     event CollateralRedeemed(address indexed redeemFrom, address indexed redeemTo, address token, uint256 amount);
     event CrabTokenBorrowed(address indexed to, uint256 indexed amount);
     event BorrowedAmountRepaid(address indexed from, uint256 indexed amount);
+    event PositionLiquidated(address indexed liquidatedAddress, address indexed Liquidator);
 
     ///////////////////
     // Modifiers
@@ -199,8 +200,8 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
         }
         uint256 liquidationReward = amountOfCrabBorrowed * LIQUIDATION_REWARD / 100;
         uint256 collateralToLiquidate = amountOfCrabBorrowed + liquidationReward;
-        // todo lame
-        uint256 collateralLiquidated = 0;
+        // todo doesn't really workk
+        //uint256 collateralLiquidated = 0;
 
         // loop through all the collateral tokens and liquidate the collateral
         for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
@@ -208,19 +209,19 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
             uint256 tokenAmount = s_collateralDeposited[user][token];
             uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
             uint256 collateralToLiquidateInToken = collateralToLiquidate * fullPrice / userCollateralValue;
-            // todo fucked :(
+            // todo test this line
             if (collateralToLiquidateInToken > tokenAmount) {
                 collateralToLiquidateInToken = tokenAmount;
             }
             // update user collateral
             s_collateralDeposited[user][token] -= collateralToLiquidateInToken;
             IERC20(token).safeTransfer(address(liquidationCallback), collateralToLiquidateInToken);
-            collateralLiquidated += collateralToLiquidateInToken;
+            //collateralLiquidated += collateralToLiquidateInToken;
         }
         // update borrowed balance and reset user
         s_protocolDebtInCrab -= amountOfCrabBorrowed;
         i_crabStableCoin.burn(amountOfCrabBorrowed);
-        emit CollateralRedeemed(user, address(liquidationCallback), address(0), collateralLiquidated);
+        emit PositionLiquidated(user, address(liquidationCallback));
     }
 
     /**
@@ -256,28 +257,28 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
     function withdrawCollateral(
         address collateralTokenAddress,
         uint256 amount
-        )
-            external
-            moreThanZero(amount)
-            isAllowedToken(collateralTokenAddress)
-            nonReentrant
-        {
-            uint256 amountOfCrabBorrowed = getUserCrabBalance(msg.sender);
-            if (amountOfCrabBorrowed > 0) {
-                CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
-                uint256 remainingCollateralValueAfterWithdrawal = (
-                    s_collateralDeposited[msg.sender][collateralTokenAddress] - amount
-                ) * getPriceInUSDForTokens(collateralTokenAddress, 1);
-                uint256 collateralValueRequiredToKeepltv =
-                    (remainingCollateralValueAfterWithdrawal - amountOfCrabBorrowed) * tokenData.ltvRatio / 100;
-                if (collateralValueRequiredToKeepltv > remainingCollateralValueAfterWithdrawal) {
-                    revert("Withdrawal would violate LTV ratio");
-                }
+    )
+        external
+        moreThanZero(amount)
+        isAllowedToken(collateralTokenAddress)
+        nonReentrant
+    {
+        uint256 amountOfCrabBorrowed = getUserCrabBalance(msg.sender);
+        if (amountOfCrabBorrowed > 0) {
+            CollateralToken memory tokenData = s_collateralTokenData[collateralTokenAddress];
+            uint256 remainingCollateralValueAfterWithdrawal = (
+                s_collateralDeposited[msg.sender][collateralTokenAddress] - amount
+            ) * getPriceInUSDForTokens(collateralTokenAddress, 1);
+            uint256 collateralValueRequiredToKeepltv =
+                (remainingCollateralValueAfterWithdrawal - amountOfCrabBorrowed) * tokenData.ltvRatio / 100;
+            if (collateralValueRequiredToKeepltv > remainingCollateralValueAfterWithdrawal) {
+                revert("Withdrawal would violate LTV ratio");
             }
-            s_collateralDeposited[msg.sender][collateralTokenAddress] -= amount;
-            IERC20(collateralTokenAddress).safeTransfer(msg.sender, amount);
-            emit CollateralRedeemed(msg.sender, msg.sender, collateralTokenAddress, amount);
         }
+        s_collateralDeposited[msg.sender][collateralTokenAddress] -= amount;
+        IERC20(collateralTokenAddress).safeTransfer(msg.sender, amount);
+        emit CollateralRedeemed(msg.sender, msg.sender, collateralTokenAddress, amount);
+    }
 
     /**
      * @dev Borrow protocol stablecoins against the caller's collateral.
