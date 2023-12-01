@@ -114,6 +114,7 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
     event CollateralRedeemed(address indexed redeemFrom, address indexed redeemTo, address token, uint256 amount);
     event CrabTokenBorrowed(address indexed to, uint256 indexed amount);
     event BorrowedAmountRepaid(address indexed from, uint256 indexed amount);
+    event PositionLiquidated(address indexed liquidatedAddress, address indexed Liquidator);
 
     ///////////////////
     // Modifiers
@@ -179,8 +180,6 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
      * @param user the user who's position should be liquidated.
      * @param liquidationCallback the liquidation callback contract to send collateral to.
      */
-     // @note who fires off ths function, how do we know who to liquidate and when, 
-     // other than manually calling this function and doing it ourselves??????
     function liquidate(address user, ILiquidationCallback liquidationCallback) external { 
         // get the crab borrowed
         uint256 amountOfCrabBorrowed = getUserCrabBalance(user);
@@ -440,6 +439,16 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
      */
     function getUserOwedAmount() public returns (uint256) {
         return s_userBorrows[msg.sender].borrowAmount + _calculateFeeForPosition(msg.sender);
+    }
+    
+    /**
+     * @dev update LTV ratio for token.
+     *
+     * @param token the token to update the ratio for
+     * @param newLtvRatio new ltv ratio for the token 
+     */
+    function updateLtvRatioForToken(address token, uint8 newLtvRatio) public onlyOwner{
+        s_collateralTokenAndRatio[token] = newLtvRatio;
     }
 
     /**

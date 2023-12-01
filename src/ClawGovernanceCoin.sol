@@ -34,7 +34,8 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
     // Define a mapping to track the last address an address voted from
     mapping(address => address) public lastVotedFrom;
 
-    constructor() ERC20("Claw governance", "CLAW") Ownable(msg.sender) { }
+    constructor() ERC20("Claw governance", "CLAW") Ownable(msg.sender) { 
+    }
 
     /**
      * @dev propose a new proposal
@@ -137,7 +138,11 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
         Proposal memory proposal = proposals[proposalId];
         return (proposal.executed, proposal.proposer, proposal.ltv, proposal.yesVotes, proposal.noVotes, proposal.endTime);
     }
-
+    /**
+     * @dev execute the proposal
+     *
+     * @param proposalId The id of the proposal to execute the ltv change
+     */
     function execute(uint256 proposalId) external {
         // Fetch the proposal
         Proposal storage proposal = proposals[proposalId];
@@ -157,6 +162,9 @@ contract ClawGovernanceCoin is ERC20, ERC20Burnable, Ownable, IGov {
 
         // Mark the proposal as executed
         proposal.executed = true;
+
+        // todo 
+        //i_crabEngine.updateLtvRatioForToken(proposal.token, proposal.ltv);
     }
 
     /**
