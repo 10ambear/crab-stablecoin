@@ -9,7 +9,6 @@ import { IUniswapV3Pool } from "./interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3Factory } from "./interfaces/IUniswapV3Factory.sol";
 
 contract UniswapTest is Test {
-    address public owner = makeAddr("owner");
     address public alice = makeAddr("alice");
     address public bob = makeAddr("bob");
 
@@ -29,7 +28,6 @@ contract UniswapTest is Test {
     IUniswapV3Pool public crabDaiPool;
 
     function setUp() public {
-        vm.prank(owner);
         crabStablecoin = new CrabStableCoin();
 
         // we're only creating one pool since it allows us to use the
@@ -58,7 +56,7 @@ contract UniswapTest is Test {
 
     // DAI is token 0, CRAB is token 1
     function uniswapV3MintCallback(uint256 amount0, uint256 amount1, bytes calldata data) public {
-        vm.prank(owner);
+        //vm.prank(owner);
         _mint(crabStablecoin, msg.sender, amount1);
         _mint(dai, msg.sender, amount0);
         console.log("Minted Amount 0:", amount0);
@@ -106,12 +104,12 @@ contract UniswapTest is Test {
 
         mintLiquidity();
 
-        // get an address that has the initial 10 crab 
-        _mint(crabStablecoin, bob, 10*1e18);
+        // get an address that has the initial 10 crab
+        _mint(crabStablecoin, bob, 10 * 1e18);
 
         // approve the router to spend the crab
         vm.prank(bob);
-        crabStablecoin.approve(address(uniswapV3Router), 10*1e18);
+        crabStablecoin.approve(address(uniswapV3Router), 10 * 1e18);
 
         // create a path from crab to usdc
         bytes memory path = bytes.concat(
@@ -122,7 +120,59 @@ contract UniswapTest is Test {
             bytes20(address(weth))
         );
 
-        
+        ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+            path: path,
+            recipient: bob,
+            deadline: block.timestamp,
+            amountIn: 10 * 1e18,
+            amountOutMinimum: 9 * 1e6
+        });
 
+        // Perform swap
+        uniswapV3Router.exactInput(params);
+
+        assertTrue(crabStablecoin.balanceOf(bob) == 0); 
+        assertTrue(usdc.balanceOf(bob) >= 99 * 1e5); // 0.99 USDC received
+        assertTrue(usdc.balanceOf(bob) < 10 * 1e6); // Didn't quite get a full USDC due to fees & slippage
     }
+
+    function test_uniswapSwapForWeth() public {
+        mintLiquidity();
+        _mint(crabStablecoin, bob, 10 * 1e18);
+        vm.startPrank(bob);
+
+        assertTrue(crabStablecoin.balanceOf(bob) == 10*1e18);
+        assertTrue(weth.balanceOf(bob) == 0);
+
+        // Approve the router
+        crabStablecoin.approve(address(uniswapV3Router), type(uint256).max);
+
+        // Let's swap crab to USDC
+        bytes memory path = bytes.concat(
+            bytes20(address(crabStablecoin)),
+            bytes3(uint24(500)), // fee tier for the pool is 0.05%
+            bytes20(address(dai)),
+            bytes3(uint24(3000)), // fee tier for the dai-weth pool is 0.30%
+            bytes20(address(weth))
+        );
+
+        // 10 / 2,000 = 0.005 ETH = 5 * 1e15
+        // Should expect roughly 5 * 1e15 out
+
+        ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+            path: path,
+            recipient: bob,
+            deadline: block.timestamp,
+            amountIn: 10 * 1e18,
+            amountOutMinimum: 49 * 1e13 // depends on current price of ETH, should get roughly 1/2,000 = 0.0005 ETH at current prices
+        });
+
+        // Perform swap
+        uniswapV3Router.exactInput(params);
+
+        assertTrue(crabStablecoin.balanceOf(bob) == 0);
+        assertTrue(weth.balanceOf(bob) >= 49 * 1e14); // More than 0.0049 ETH received
+        assertTrue(weth.balanceOf(bob) < 51 * 1e14); // Less than 0.0051 ETH received
+    }
+
 }

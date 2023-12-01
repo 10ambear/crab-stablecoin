@@ -178,22 +178,32 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
      * @param liquidationCallback the liquidation callback contract to send collateral to.
      */
     function liquidate(address user, ILiquidationCallback liquidationCallback) external { 
-        // get the crab borrowed
+
+        // get the total amount of stablecoins borrowed by the user
         uint256 amountOfCrabBorrowed = getUserCrabBalance(user);
         if (amountOfCrabBorrowed == 0) {
             revert("User has no debt");
         }
-        uint256 userCollateralValue = 0;    
+        // get the total value of the collateral
+        uint256 userCollateralValue = 0;
+
         // loop through all the collateral tokens and get the total value of the collateral
         for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
+            // token address
             address token = s_typesOfCollateralTokens[i];
+            // amount of token deposited
             uint256 tokenAmount = s_collateralDeposited[user][token];
+            // the price of the token in USD
             uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
+            // add the price of the token to the total collateral value
+            // to get the total value of the collateral
             userCollateralValue += fullPrice;
         }
         // get the collateral value required to keep the ltv ratio
         uint256 collateralValueRequiredToKeepltv = (userCollateralValue - amountOfCrabBorrowed) * 100
             / s_collateralTokenAndRatio[s_typesOfCollateralTokens[0]];
+            
+        // check if the user has enough collateral to keep the ltv ratio
         if (collateralValueRequiredToKeepltv > userCollateralValue) {
             revert("User has no debt");
 
@@ -406,6 +416,16 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
      */
     function getUserOwedAmount() public returns (uint256) {
         return s_userBorrows[msg.sender].borrowAmount + _calculateFeeForPosition(msg.sender);
+    }
+    
+    /**
+     * @dev update LTV ratio for token.
+     *
+     * @param token the token to update the ratio for
+     * @param newLtvRatio new ltv ratio for the token 
+     */
+    function updateLtvRatioForToken(address token, uint8 newLtvRatio) public onlyOwner{
+        s_collateralTokenAndRatio[token] = newLtvRatio;
     }
 
     /**
