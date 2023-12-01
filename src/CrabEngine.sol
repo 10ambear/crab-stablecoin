@@ -92,6 +92,9 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
     /// @dev staker contract address
     address private stakerAddress; 
 
+    /// @dev liquidation callback address
+    address public liquidationAddress = address(0);
+
     /// @dev fee variables
     uint256 private constant INTEREST_PER_SHARE_PER_SECOND = 3_170_979_198; // positionSize/10 = positionSize *
         // seconds_per_year * interestPerSharePerSec
@@ -181,46 +184,58 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
     function liquidate(address user, ILiquidationCallback liquidationCallback) external { 
         // get the crab borrowed
         uint256 amountOfCrabBorrowed = getUserCrabBalance(user);
-        if (amountOfCrabBorrowed == 0) {
+        uint256 fees = _calculateFeeForPosition(user);
+        if (amountOfCrabBorrowed + fees == 0) {
             revert("User has no debt");
         }
-        uint256 userCollateralValue = 0;    
+
+        // get the total value of the collateral
+        uint256 userCollateralValue = 0;
+        uint256 userMaxBorrow = 0;
         // loop through all the collateral tokens and get the total value of the collateral
         for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
-            address token = s_typesOfCollateralTokens[i];
-            uint256 tokenAmount = s_collateralDeposited[user][token];
-            uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
+            // get full price for token and token amount
+            uint256 fullPrice = getPriceInUSDForTokens(s_typesOfCollateralTokens[i], s_collateralDeposited[user][s_typesOfCollateralTokens[i]]);
+            // add the price of the token to the total collateral value
+            // to get the total value of the collateral
             userCollateralValue += fullPrice;
+            // get max borrow according to LTV ratio
+            userMaxBorrow += fullPrice / s_collateralTokenAndRatio[s_typesOfCollateralTokens[i]];
         }
-        // get the collateral value required to keep the ltv ratio
-        uint256 collateralValueRequiredToKeepltv = (userCollateralValue - amountOfCrabBorrowed) * 100
-            / s_collateralTokenAndRatio[s_typesOfCollateralTokens[0]];
-        if (collateralValueRequiredToKeepltv > userCollateralValue) {
-            revert("User has no debt");
 
+        if(userMaxBorrow > amountOfCrabBorrowed + fees) {
+            revert("User has not exceeded LTV");
         }
-        uint256 liquidationReward = amountOfCrabBorrowed * LIQUIDATION_REWARD / 100;
-        uint256 collateralToLiquidate = amountOfCrabBorrowed + liquidationReward;
-        uint256 collateralLiquidated = 0;
-
+        
+        uint256 collateralLiquidated = 0;        
+        uint256 collateralToLiquidate = amountOfCrabBorrowed + amountOfCrabBorrowed * LIQUIDATION_REWARD / 100;
+        bool isValidLiquidatorAddress = liquidationAddress == address(liquidationCallback) && address(liquidationCallback) != address(0);
         // loop through all the collateral tokens and liquidate the collateral
         for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
             address token = s_typesOfCollateralTokens[i];
-            uint256 tokenAmount = s_collateralDeposited[user][token];
-            uint256 fullPrice = getPriceInUSDForTokens(token, tokenAmount);
-            uint256 collateralToLiquidateInToken = collateralToLiquidate * fullPrice / userCollateralValue;
-            if (collateralToLiquidateInToken > tokenAmount) {
-                collateralToLiquidateInToken = tokenAmount;
+            uint256 price = getPriceInUSDForTokens(token, s_collateralDeposited[user][token]);
+            uint256 collateralToLiquidateInToken = collateralToLiquidate * price / userCollateralValue;
+            if (collateralToLiquidateInToken >= s_collateralDeposited[user][token]) {
+                collateralToLiquidateInToken = s_collateralDeposited[user][token];
             }
             // update user collateral
             s_collateralDeposited[user][token] -= collateralToLiquidateInToken;
-            IERC20(token).safeTransfer(address(liquidationCallback), collateralToLiquidateInToken);
+            if (isValidLiquidatorAddress) {
+                IERC20(token).safeTransfer(address(liquidationCallback), collateralToLiquidateInToken);
+                liquidationCallback.onCollateralReceived(token, collateralToLiquidateInToken);
+            }
+            // user repays it himself
+            else {
+                IERC20(token).safeTransfer(msg.sender, collateralToLiquidateInToken);
+                i_crabStableCoin.transferFrom(msg.sender, address(this), price);
+            }        
             collateralLiquidated += collateralToLiquidateInToken;
         }
+
         // update borrowed balance and reset user
         s_protocolDebtInCrab -= amountOfCrabBorrowed;
+        delete s_userBorrows[user];
         i_crabStableCoin.burn(amountOfCrabBorrowed);
-        i_crabStableCoin.mint(address(liquidationCallback), liquidationReward);
         emit CollateralRedeemed(user, address(liquidationCallback), address(0), collateralLiquidated);
     }
 
@@ -375,6 +390,15 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
      */
     function setStakerAddress(address addr) external onlyOwner {
         stakerAddress = addr;
+    }
+
+    /**
+     * @dev set liquidation callback address 
+     *
+     * @param addr is addr of liquidationCallback contract
+     */
+    function setLiquidationCallbackAddress(address addr) external onlyOwner {
+        liquidationAddress = addr;
     }
 
     ///////////////////
