@@ -208,28 +208,38 @@ contract CrabEngine is ReentrancyGuard, ICDP, Ownable {
         }
         
         uint256 collateralLiquidated = 0;        
-        uint256 collateralToLiquidate = amountOfCrabBorrowed + amountOfCrabBorrowed * LIQUIDATION_REWARD / 100;
+        uint256 liquidationReward = amountOfCrabBorrowed * LIQUIDATION_REWARD / 100;
+        uint256 collateralToLiquidate = amountOfCrabBorrowed + liquidationReward;
         bool isValidLiquidatorAddress = liquidationAddress == address(liquidationCallback) && address(liquidationCallback) != address(0);
         // loop through all the collateral tokens and liquidate the collateral
         for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
-            address token = s_typesOfCollateralTokens[i];
-            uint256 price = getPriceInUSDForTokens(token, s_collateralDeposited[user][token]);
+            //get price for token according to amount
+            //address token = s_typesOfCollateralTokens[i];
+            //uint256 tokenAmount = s_collateralDeposited[user][token];
+            uint256 price = getPriceInUSDForTokens(s_typesOfCollateralTokens[i], s_collateralDeposited[user][s_typesOfCollateralTokens[i]]);
             uint256 collateralToLiquidateInToken = collateralToLiquidate * price / userCollateralValue;
-            if (collateralToLiquidateInToken >= s_collateralDeposited[user][token]) {
-                collateralToLiquidateInToken = s_collateralDeposited[user][token];
+            if (collateralToLiquidateInToken >= s_collateralDeposited[user][s_typesOfCollateralTokens[i]]) {
+                collateralToLiquidateInToken = s_collateralDeposited[user][s_typesOfCollateralTokens[i]];
             }
             // update user collateral
-            s_collateralDeposited[user][token] -= collateralToLiquidateInToken;
+            s_collateralDeposited[user][s_typesOfCollateralTokens[i]] -= collateralToLiquidateInToken;
             if (isValidLiquidatorAddress) {
-                IERC20(token).safeTransfer(address(liquidationCallback), collateralToLiquidateInToken);
-                liquidationCallback.onCollateralReceived(token, collateralToLiquidateInToken);
+                IERC20(s_typesOfCollateralTokens[i]).safeTransfer(address(liquidationCallback), collateralToLiquidateInToken);
+                liquidationCallback.onCollateralReceived(s_typesOfCollateralTokens[i], collateralToLiquidateInToken);
             }
             // user repays it himself
             else {
-                IERC20(token).safeTransfer(msg.sender, collateralToLiquidateInToken);
+                IERC20(s_typesOfCollateralTokens[i]).safeTransfer(msg.sender, collateralToLiquidateInToken);
                 i_crabStableCoin.transferFrom(msg.sender, address(this), price);
             }        
-            collateralLiquidated += collateralToLiquidateInToken;
+            collateralLiquidated += collateralToLiquidateInToken;            
+        }
+
+        for (uint256 i = 0; i < s_typesOfCollateralTokens.length; i++) {
+            if (liquidationReward <= s_collateralDeposited[user][s_typesOfCollateralTokens[i]]) {
+                IERC20(s_typesOfCollateralTokens[i]).safeTransfer(msg.sender, liquidationReward);
+                break;
+            }
         }
 
         // update borrowed balance and reset user
